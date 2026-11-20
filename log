@@ -1,8 +1,173 @@
-<style>
-  #btn-filter-offline.active,
-  #btn-filter-covered.active {
-    background: #ff4d4f !important;
-    border-color: #ff4d4f !important;
-    color: #fff !important;
-  }
-</style>
+Tôi hiểu "hải quan" là camera thuộc khu vực hải quan (Customs), và tôi đã làm sẵn cơ chế đánh dấu để bạn chọn camera nào hiện màu vàng. Có 3 phần cần sửa: `layout.js`, CSS, và `layoutApi.js`/`server.js`.
+
+## 1. `layout.js` – nhãn ngôn ngữ
+
+Thêm ngay sau dòng `Object.keys(EXTRA).forEach(...)`:
+
+```js
+var EXTRA2 = {
+  zh: { lg_normal: '正常',        lg_offline: '离线',        lg_covered: '遮挡',   lg_customs: '海关',     updated: '资料更新时间' },
+  vi: { lg_normal: 'Bình thường', lg_offline: 'Ngoại tuyến', lg_covered: 'Bị che', lg_customs: 'Hải quan', updated: 'Thời gian cập nhật' },
+  en: { lg_normal: 'Normal',      lg_offline: 'Offline',     lg_covered: 'Covered', lg_customs: 'Customs', updated: 'Updated' }
+};
+Object.keys(EXTRA2).forEach(function (k) { for (var f in EXTRA2[k]) L10N[k][f] = EXTRA2[k][f]; });
+```
+
+## 2. `layout.js` – chọn camera hải quan (màu vàng)
+
+Thêm ngay sau dòng `var STATUSES = [...]`:
+
+```js
+// Camera hải quan: khai báo IP và/hoặc nhận theo tên camera
+var CUSTOMS = {
+  ips: [],   // ví dụ: ['172.17.13.142', '172.17.13.143']
+  nameRe: /hai\s*quan|hải\s*quan|customs/i
+};
+function isCustoms(m) {
+  return !m.planned && (CUSTOMS.ips.indexOf(m.ip) >= 0 || CUSTOMS.nameRe.test(m.name || ''));
+}
+```
+
+Để có "vài camera vàng", bạn điền IP vào `ips`. Tôi không biết camera nào thuộc hải quan nên không tự chọn. Nếu tên camera trong DB có chữ "HAI QUAN" thì chúng sẽ tự vàng.
+
+## 3. `layout.js` – dòng thời gian cập nhật trong header
+
+Trong `build()`, thêm vào chuỗi HTML, ngay sau dòng `lay-legend` và trước nút đóng:
+
+```js
+'<div class="lay-legend" id="lay-legend"></div>' +
+'<span class="lay-updated" id="lay-updated"></span>' +
+```
+
+Trong mảng `forEach` liệt kê id, thêm `'updated'` vào cuối:
+
+```js
+['overlay', 'title', ..., 'pdf', 'next', 'updated']
+```
+
+Thêm hàm này (đặt gần `renderLegend`):
+
+```js
+var updatedAt = '';
+function renderUpdated() {
+  if (el.updated) el.updated.textContent = updatedAt ? T().updated + ': ' + updatedAt : '';
+}
+```
+
+Trong `reload`, ngay sau `plans = j.maps; fillPlanSelect();` thêm:
+
+```js
+updatedAt = j.updated || updatedAt; renderUpdated();
+```
+
+Trong `labels()`, thêm `renderUpdated();`.
+
+## 4. `layout.js` – thay `drawAll` và `renderLegend`
+
+```js
+function drawAll() {
+  el.pins.innerHTML = ''; el.cones.innerHTML = '';
+  el.cones.setAttribute('width', W); el.cones.setAttribute('height', H);
+  byId = {};
+  markers.forEach(function (m) {
+    byId[m.id] = m;
+    m.customs = isCustoms(m);
+    var yellow  = m.customs && m.status !== 'offline';          // offline luôn đỏ
+    var covered = !m.planned && m.health === 'covered';          // bị che: viền đỏ
+    var h = healthProblem(m);
+    var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
+      (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
+      (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (m.id === selId ? ' sel' : ''));
+    p.dataset.id = m.id; p.innerHTML = CAM_SVG;
+    p.style.left = (m.x * W) + 'px'; p.style.top = (m.y * H) + 'px';
+    p.appendChild(mk('span', 'lbl', m.name || m.ip || '?'));
+    el.pins.appendChild(p); m._el = p;
+    var c = document.createElementNS(SVGNS, 'path');
+    c.setAttribute('d', conePath(m));
+    c.setAttribute('class', 'lay-cone ' + stClass(m) + (yellow ? ' cust' : '') +
+      (m.id === selId ? ' sel' : '') + (m.planned ? ' planned' : ''));
+    el.cones.appendChild(c);
+  });
+  if (selId && !byId[selId]) select(null);
+  renderLegend(); updateNext();
+}
+
+function renderLegend() {
+  var t = T(), n = { normal: 0, offline: 0, covered: 0, customs: 0 };
+  markers.forEach(function (m) {
+    if (m.planned) return;
+    if (m.customs) n.customs++;
+    if (m.status === 'offline') n.offline++;
+    else if (!m.customs && m.status === 'online') n.normal++;
+    if (m.health === 'covered') n.covered++;
+  });
+  el.legend.innerHTML = '';
+  [['normal', '', t.lg_normal], ['offline', 'off', t.lg_offline],
+   ['covered', 'cov', t.lg_covered], ['customs', 'cust', t.lg_customs]].forEach(function (it) {
+    var chip = mk('span', 'lay-lg');
+    var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
+    chip.appendChild(ico);
+    chip.appendChild(document.createTextNode(it[2] + ' ' + n[it[0]]));
+    el.legend.appendChild(chip);
+  });
+}
+```
+
+Cách tô màu ghim:
+- Online là xanh, offline là đỏ, hải quan là vàng (nếu hải quan bị offline thì vẫn đỏ để không bỏ sót lỗi).
+- Bị che có viền đỏ, hiện chồng lên bất kỳ màu nào.
+
+## 5. CSS – thêm vào cuối `style/layout.css`
+
+```css
+/* chú thích */
+.lay-lg { display:inline-flex; align-items:center; gap:6px; margin-left:14px; font-size:12px; white-space:nowrap; }
+.lay-lg-ico { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:#1e9e57; }
+.lay-lg-ico svg { width:13px; height:13px; fill:#fff; }
+.lay-lg-ico.off  { background:#d93025; }
+.lay-lg-ico.cov  { background:#1e9e57; outline:2px solid #d93025; outline-offset:0; }
+.lay-lg-ico.cust { background:#f5c400; }
+.lay-updated { margin:0 12px; font-size:12px; opacity:.85; white-space:nowrap; }
+
+/* ghim trên bản đồ */
+.lay-pin.cust { background:#f5c400 !important; border-color:#fff3c4 !important; }
+.lay-pin.cov  { outline:3px solid #d93025; outline-offset:0; }
+.lay-cone.cust { fill:rgba(245,196,0,.22) !important; stroke:#f5c400 !important; }
+```
+
+Tôi chưa xem `layout.css`, nên không biết ghim đang tô màu bằng `background` hay bằng `fill` của icon. Nếu sau khi áp dụng ghim vàng không đổi màu, bạn gửi tôi đoạn CSS `.lay-pin` hiện có để tôi chỉnh lại selector.
+
+## 6. `layoutApi.js` – thời gian cập nhật từ SQL
+
+Đổi chữ ký hàm, thêm hằng số mặc định phía trên:
+
+```js
+const DEFAULT_UPDATED_SQL =
+  "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
+
+export default function layoutRouter(pool, logger = console, updatedSql = DEFAULT_UPDATED_SQL) {
+```
+
+Trong route `/maps`, ngay trước `res.json(...)` thêm đoạn lấy thời gian, và thêm `updated` vào kết quả:
+
+```js
+let updated = null;
+try { updated = (await pool.query(updatedSql)).rows[0]?.updatedate || null; }
+catch (e) { logger.error?.('[layout] updated-time SQL lỗi: ' + e.message); }
+
+res.json({ ok: true, updated, maps: rows.map(...) });   // giữ nguyên phần map cũ
+```
+
+## 7. `server.js` – dùng chung SQL với dashboard
+
+```js
+app.use('/api/layout', layoutRouter(pool, logger, Q.getTimes?.camera));
+```
+
+Cách này giúp giờ trong layout trùng đúng với giờ "资料更新时间" trên card camera của dashboard. Layout làm mới mỗi 15 giây nên giờ cũng tự cập nhật.
+
+## Lưu ý
+- **Số "Bị che" có thể khác dashboard.** Layout lấy "bị che" từ bảng `camera_health` (`health = 'covered'`), còn card dashboard lấy từ `itsec_camera_offline_test` (`status='2'`). Hai nguồn khác nhau nên số có thể lệch.
+- **File PDF chưa đổi.** Chú thích trong PDF vẫn theo màu trạng thái cũ, chưa có vàng cho hải quan. Nếu cần, tôi sẽ thêm.
+- **Xóa cache.** Đổi `layout.js?v=6` trong `index.html` thành `v=7`.
+- **Cung cấp IP camera hải quan.** Gửi tôi danh sách IP, hoặc quy ước đặt tên, để điền sẵn vào `CUSTOMS.ips`.
