@@ -27,6 +27,14 @@
     en: { pdf: 'Export PDF', pdfBusy: 'Building the PDF (large plans take a few seconds)…', pdfFail: 'Could not build the PDF:', next: '{0} camera problems', copyIp: 'Copy IP', copied: 'Copied' }
   };
   Object.keys(EXTRA).forEach(function (k) { for (var f in EXTRA[k]) L10N[k][f] = EXTRA[k][f]; });
+  // Chú thích (4 loại) và nhãn thời gian cập nhật
+  var EXTRA2 = {
+    zh: { lg_normal: '正常',        lg_offline: '离线',        lg_covered: '遮挡',    lg_customs: '海关',     updated: '资料更新时间' },
+    vi: { lg_normal: 'Bình thường', lg_offline: 'Ngoại tuyến', lg_covered: 'Bị che',  lg_customs: 'Hải quan', updated: 'Thời gian cập nhật' },
+    en: { lg_normal: 'Normal',      lg_offline: 'Offline',     lg_covered: 'Covered', lg_customs: 'Customs',  updated: 'Updated' }
+  };
+  Object.keys(EXTRA2).forEach(function (k) { for (var f in EXTRA2[k]) L10N[k][f] = EXTRA2[k][f]; });
+
   // Chữ trong file PDF: font DejaVu không có chữ Hán nên tiếng Trung dùng bản tiếng Anh.
   var PDFT = {
     vi: { subject: 'Mặt bằng camera', listTitle: 'Danh sách camera', page: 'Trang', colCode: 'Mã', colName: 'Camera', colStatus: 'Trạng thái', colIp: 'IP', colChannel: 'NVR / kênh', colModel: 'Model', colSerial: 'Serial', colSwitch: 'Switch / port', colRoom: 'Phòng', colAim: 'Hướng / góc', sub: 'Xuất lúc {0} · {1} camera' },
@@ -35,11 +43,22 @@
   var HEALTH_BAD = { offline: 1, black: 1, covered: 1, frozen: 1, noir: 1 },
       HEALTH_WARN = { blurred: 1, moved: 1, bright: 1, colour: 1, contrast: 1, noisy: 1, bwday: 1, suspect: 1 };
   var STATUSES = ['online', 'offline', 'warning', 'missing', 'planned'];
+
+  // Camera hải quan (hiện màu vàng): khai báo IP và/hoặc nhận theo tên camera.
+  var CUSTOMS = {
+    ips: [],   // ví dụ: ['172.17.13.142', '172.17.13.143']
+    nameRe: /hai\s*quan|hải\s*quan|customs/i
+  };
+  function isCustoms(m) {
+    return !m.planned && (CUSTOMS.ips.indexOf(m.ip) >= 0 || CUSTOMS.nameRe.test(m.name || ''));
+  }
+
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
 
   var lang = 'zh', built = false, timer = null;
   var plans = [], plan = null, markers = [], byId = {}, selId = null, namesOn = false;
   var W = 1, H = 1, view = { s: 1, tx: 0, ty: 0 }, fitS = 1, loadToken = 0;
+  var updatedAt = '';
   var el = {};
 
   function T() { return L10N[lang] || L10N.en; }
@@ -60,12 +79,16 @@
       '<div class="lay-box">' +
         '<div class="lay-head">' +
           '<span class="lay-title" id="lay-title"></span>' +
-          '<select id="lay-plan"></select>' +
+          '<div class="lay-dd" id="lay-plan">' +
+            '<button type="button" class="lay-dd-btn" id="lay-plan-btn"></button>' +
+            '<div class="lay-dd-list" id="lay-plan-list"></div>' +
+          '</div>' +
           '<input id="lay-q" type="search" autocomplete="off">' +
           '<button class="lay-btn" id="lay-names"></button>' +
           '<button class="lay-btn" id="lay-pdf" disabled></button>' +
           '<button class="lay-btn lay-warnbtn" id="lay-next" hidden></button>' +
           '<div class="lay-legend" id="lay-legend"></div>' +
+          '<span class="lay-updated" id="lay-updated"></span>' +
           '<button class="lay-close" id="lay-x" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="lay-body">' +
@@ -80,12 +103,14 @@
         '</div>' +
       '</div>';
     document.body.appendChild(o);
-    ['overlay', 'title', 'plan', 'q', 'names', 'legend', 'x', 'vp', 'stage', 'img', 'cones', 'pins', 'note', 'zin', 'zout', 'zfit', 'find', 'card', 'pdf', 'next']
+    ['overlay', 'title', 'plan', 'q', 'names', 'legend', 'x', 'vp', 'stage', 'img', 'cones', 'pins', 'note', 'zin', 'zout', 'zfit', 'find', 'card', 'pdf', 'next', 'updated']
       .forEach(function (k) { el[k] = $(k === 'overlay' ? 'lay-overlay' : 'lay-' + k); });
+    el.planBtn = $('lay-plan-btn'); el.planList = $('lay-plan-list');
 
     el.x.onclick = close;
     el.names.onclick = function () { namesOn = !namesOn; applyNames(); };
-    el.plan.onchange = function () { openPlan(+el.plan.value); };
+    el.planBtn.onclick = function (e) { e.stopPropagation(); el.planList.classList.toggle('open'); };
+    document.addEventListener('click', function () { el.planList.classList.remove('open'); });
     el.zin.onclick = function () { zoomAt(1.4, el.vp.clientWidth / 2, el.vp.clientHeight / 2); };
     el.zout.onclick = function () { zoomAt(1 / 1.4, el.vp.clientWidth / 2, el.vp.clientHeight / 2); };
     el.zfit.onclick = function () { fit(); };
@@ -106,7 +131,7 @@
       zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
 
-    // kéo để di chuyển; chạm/bấm không kéo = chọn ghim
+    // kéo để di chuyển; chạm/bấm không kéo = chọn camera gần nhất
     var drag = null, moved = false;
     el.vp.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
@@ -122,9 +147,16 @@
     el.vp.addEventListener('pointerup', function (e) {
       var wasMoved = moved; drag = null; el.vp.classList.remove('drag');
       if (wasMoved) return;
-      var hit = document.elementFromPoint(e.clientX, e.clientY);   // pointer capture đổi e.target
-      var pin = hit && hit.closest && hit.closest('.lay-pin');
-      select(pin ? +pin.dataset.id : null);
+      var r = el.vp.getBoundingClientRect();
+      // đổi điểm bấm sang tọa độ mặt bằng, chọn camera gần nhất trong bán kính 18px màn hình
+      var mx = (e.clientX - r.left - view.tx) / view.s;
+      var my = (e.clientY - r.top - view.ty) / view.s;
+      var best = null, bestD = 18 / view.s;
+      markers.forEach(function (m) {
+        var d = Math.hypot(m.x * W - mx, m.y * H - my);
+        if (d < bestD) { bestD = d; best = m; }
+      });
+      select(best ? best.id : null);
     });
 
     // tìm camera
@@ -174,15 +206,21 @@
     byId = {};
     markers.forEach(function (m) {
       byId[m.id] = m;
+      m.customs = isCustoms(m);
+      var yellow = m.customs && m.status !== 'offline';          // offline luôn đỏ
+      var covered = !m.planned && m.health === 'covered';         // bị che: viền đỏ
       var h = healthProblem(m);
-      var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') + (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') + (m.id === selId ? ' sel' : ''));
+      var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
+        (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
+        (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (m.id === selId ? ' sel' : ''));
       p.dataset.id = m.id; p.innerHTML = CAM_SVG;
       p.style.left = (m.x * W) + 'px'; p.style.top = (m.y * H) + 'px';
       p.appendChild(mk('span', 'lbl', m.name || m.ip || '?'));
       el.pins.appendChild(p); m._el = p;
       var c = document.createElementNS(SVGNS, 'path');
       c.setAttribute('d', conePath(m));
-      c.setAttribute('class', 'lay-cone ' + stClass(m) + (m.id === selId ? ' sel' : '') + (m.planned ? ' planned' : ''));
+      c.setAttribute('class', 'lay-cone ' + stClass(m) + (yellow ? ' cust' : '') +
+        (m.id === selId ? ' sel' : '') + (m.planned ? ' planned' : ''));
       el.cones.appendChild(c);
     });
     if (selId && !byId[selId]) select(null);
@@ -190,16 +228,29 @@
   }
   function applyNames() { el.stage.classList.toggle('lay-labels', namesOn); el.names.classList.toggle('on', namesOn); }
 
+  // Chú thích: 4 icon camera cùng một hàng
   function renderLegend() {
-    var counts = {}; markers.forEach(function (m) { counts[m.status] = (counts[m.status] || 0) + 1; });
+    var t = T(), n = { normal: 0, offline: 0, covered: 0, customs: 0 };
+    markers.forEach(function (m) {
+      if (m.planned) return;
+      if (m.customs) n.customs++;
+      if (m.status === 'offline') n.offline++;
+      else if (!m.customs && m.status === 'online') n.normal++;
+      if (m.health === 'covered') n.covered++;
+    });
     el.legend.innerHTML = '';
-    STATUSES.forEach(function (s) {
-      if (!counts[s] && s !== 'online' && s !== 'offline') return;
-      var chip = mk('span', 'lay-chip st-' + s);
-      chip.appendChild(mk('i', 'lay-dot'));
-      chip.appendChild(document.createTextNode(T()[s] + ' ' + (counts[s] || 0)));
+    [['normal', '', t.lg_normal], ['offline', 'off', t.lg_offline],
+     ['covered', 'cov', t.lg_covered], ['customs', 'cust', t.lg_customs]].forEach(function (it) {
+      var chip = mk('span', 'lay-lg');
+      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
+      chip.appendChild(ico);
+      chip.appendChild(mk('span', 'lay-lg-txt', it[2] + ' ' + n[it[0]]));
       el.legend.appendChild(chip);
     });
+  }
+
+  function renderUpdated() {
+    if (el.updated) el.updated.textContent = T().updated + ': ' + (updatedAt || '--');
   }
 
   // ── thẻ chi tiết ───────────────────────────────────────────────────────
@@ -269,22 +320,40 @@
     if (plan && plan.id === m.map_id) go(); else openPlan(m.map_id).then(go);
   }
 
-  // ── nạp dữ liệu ────────────────────────────────────────────────────────
-  function fillPlanSelect() {
-    el.plan.innerHTML = '';
-    var groups = {};
-    plans.forEach(function (p) {
-      var g = groups[p.building || ''];
-      if (!g) { g = groups[p.building || ''] = p.building ? mk('optgroup') : el.plan; if (p.building) { g.label = p.building; el.plan.appendChild(g); } }
-      var o = mk('option', null, p.name + ' (' + p.pins + (p.not_online ? ' · ' + p.not_online + ' ⚠' : '') + ')'); o.value = p.id;
-      g.appendChild(o);
-    });
-    if (plan) el.plan.value = plan.id;
+  // ── danh sách mặt bằng (dropdown tự dựng để "⚠" có màu đỏ) ───────────────
+  function fillPlanLabel(node, p) {
+    node.appendChild(document.createTextNode(p.name + ' (' + p.pins));
+    if (p.not_online) {
+      node.appendChild(document.createTextNode(' · '));
+      node.appendChild(mk('span', 'lay-warn', p.not_online + ' ⚠'));
+    }
+    node.appendChild(document.createTextNode(')'));
   }
+  function setPlanBtn() {
+    el.planBtn.innerHTML = '';
+    var cur = plan && (plans.filter(function (x) { return x.id === plan.id; })[0] || plan);
+    if (cur) fillPlanLabel(el.planBtn, cur);
+    el.planBtn.appendChild(mk('span', 'lay-dd-caret', ' ▾'));
+  }
+  function fillPlanSelect() {
+    el.planList.innerHTML = '';
+    var lastB = null;
+    plans.forEach(function (p) {
+      var b = p.building || '';
+      if (b !== lastB) { lastB = b; if (b) el.planList.appendChild(mk('div', 'lay-dd-grp', b)); }
+      var it = mk('div', 'lay-dd-item' + (plan && plan.id === p.id ? ' sel' : ''));
+      fillPlanLabel(it, p);
+      it.onclick = function () { el.planList.classList.remove('open'); openPlan(p.id); };
+      el.planList.appendChild(it);
+    });
+    setPlanBtn();
+  }
+
+  // ── nạp dữ liệu ────────────────────────────────────────────────────────
   function openPlan(id) {
     var p = plans.filter(function (x) { return x.id === id; })[0];
     if (!p) return Promise.resolve();
-    plan = p; selId = null; el.card.classList.remove('open'); el.plan.value = id;
+    plan = p; selId = null; el.card.classList.remove('open'); fillPlanSelect();
     W = p.width; H = p.height;
     el.stage.style.width = W + 'px'; el.stage.style.height = H + 'px';
     el.note.textContent = '…';
@@ -300,7 +369,9 @@
   }
   function reload(first) {
     return getJSON(API + '/maps').then(function (j) {
-      plans = j.maps; fillPlanSelect();
+      plans = j.maps;
+      updatedAt = j.updated || updatedAt; renderUpdated();
+      fillPlanSelect();
       if (!plans.length) { el.note.textContent = T().noPlans; el.stage.style.display = 'none'; return; }
       el.stage.style.display = '';
       if (first || !plan) return openPlan(plans[0].id);
@@ -308,7 +379,7 @@
       var cur = plans.filter(function (x) { return x.id === plan.id; })[0];
       if (!cur) return openPlan(plans[0].id);
       if (cur.version !== plan.version || cur.image_rev !== plan.image_rev) return openPlan(cur.id);
-      plan = cur; el.plan.value = cur.id;
+      plan = cur; fillPlanSelect();
       return getJSON(API + '/' + cur.id + '/markers').then(function (r) { markers = r.markers; drawAll(); applyNames(); if (selId && byId[selId]) showCard(byId[selId]); });
     }).catch(function (e) { if (first) el.note.textContent = T().loadFail + ': ' + e.message; });
   }
@@ -387,7 +458,7 @@
   function labels() {
     var t = T();
     el.title.textContent = t.title; el.q.placeholder = t.find; el.names.textContent = t.names; el.zfit.title = t.fit; el.pdf.textContent = '⬇ ' + t.pdf; updateNext();
-    renderLegend(); if (selId && byId[selId]) showCard(byId[selId]);
+    renderLegend(); renderUpdated(); if (selId && byId[selId]) showCard(byId[selId]);
   }
   function open(opts) {
     opts = opts || {}; if (opts.lang) lang = opts.lang;
