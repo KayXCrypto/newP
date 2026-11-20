@@ -6,6 +6,10 @@ import express from 'express';
 const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
                          ELSE 'ip:' || host(c.camera_ip::inet) END`;
 
+// Câu SQL lấy "thời gian cập nhật" mặc định (server.js có thể truyền Q.getTimes.camera để dùng chung với dashboard)
+const DEFAULT_UPDATED_SQL =
+    "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
+
 // Nhiều mức truy vấn: nếu DB thật thiếu cột/bảng phụ (camera_health, camera_locations,
 // detect_result...) thì tự hạ mức, ghim vẫn hiện thay vì lỗi 500.
 const TIERS = [
@@ -84,7 +88,7 @@ function markerSelect(t) {
     ${locJoin}`;
 }
 
-export default function layoutRouter(pool, logger = console) {
+export default function layoutRouter(pool, logger = console, updatedSql = DEFAULT_UPDATED_SQL) {
     const r = express.Router();
     let tier = 0;   // mức truy vấn đã chạy được
 
@@ -124,7 +128,20 @@ export default function layoutRouter(pool, logger = console) {
             LEFT JOIN cams ON cams.camera_key = k.camera_key
             GROUP BY m.id
             ORDER BY COALESCE(m.building,''), m.sort_order, m.name`);
-        res.json({ ok: true, maps: rows.map((m) => ({ ...m, version: num(m.version), pins: num(m.pins), not_online: num(m.not_online) })) });
+
+        // Thời gian cập nhật dữ liệu: lấy từ SQL. Lỗi ở đây không làm hỏng danh sách mặt bằng.
+        let updated = null;
+        try {
+            updated = (await pool.query(updatedSql)).rows[0]?.updatedate || null;
+        } catch (e) {
+            logger.error?.('[layout] updated-time SQL lỗi: ' + e.message);
+        }
+
+        res.json({
+            ok: true,
+            updated,
+            maps: rows.map((m) => ({ ...m, version: num(m.version), pins: num(m.pins), not_online: num(m.not_online) }))
+        });
     }));
 
     r.get('/find', safe(async (req, res) => {
