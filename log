@@ -1,0 +1,87 @@
+Tôi đã đọc `index.html` và `config.json` (không đọc được `server.js`, GitHub chặn bản raw). Tôi không push được lên repo của bạn, nên dưới đây là các đoạn cần sửa.
+
+**Phát hiện ở code hiện tại**
+- Ô `camera-covered` không bao giờ được cập nhật số. Hàm `updateDashboardUI` chỉ gán số cho `camera-abnormal`, `camera-normal` và `camera-exception`, nên ô covered luôn hiện `0`.
+- Hai ô đang mở modal không lọc, nên không có màn hình "chỉ covered" như bạn muốn.
+- Số trên ô dùng SQL đếm `distinct ipaddress`, còn bảng chi tiết dùng SQL `camera_covered` có thêm `inner join` và điều kiện loại `excludecamera`. Hai số này có thể lệch nhau.
+
+## 1. `index.html` – ô đầu tiên (covered) mở thẳng chi tiết covered
+
+```html
+<div class="circle-wrap">
+  <div class="circle covered clickable" id="camera-covered"
+       onclick="openModal('camera','covered')">0</div>
+  <div class="circle-label">遮挡数量(台)</div>
+</div>
+
+<div class="circle-wrap">
+  <!-- ô offline: giữ nguyên, mở danh sách đầy đủ (offline + covered) -->
+  <div class="circle abnormal clickable" id="camera-abnormal"
+       onclick="openModal('camera')">0</div>
+  <div class="circle-label">异常数(台)</div>
+</div>
+```
+
+## 2. `index.html` – cập nhật số cho ô covered
+
+Trong `updateDashboardUI`, thay khối `if (key === 'camera') { ... }` bằng:
+
+```js
+if (key === 'camera') {
+  const exceptionEl = document.getElementById('camera-exception');
+  const coveredEl   = document.getElementById('camera-covered');
+
+  CAMERA_COUNTS.offline   = data.camera.abnormal  ?? 0;   // = SQL camera_offline
+  CAMERA_COUNTS.covered   = data.camera.covered   ?? 0;   // = SQL camera_covered
+  CAMERA_COUNTS.exception = data.camera.exception ?? 0;
+
+  if (coveredEl) {
+    coveredEl.textContent = CAMERA_COUNTS.covered;
+    coveredEl.classList.toggle('blink', CAMERA_COUNTS.covered > 0);
+    coveredEl.classList.toggle('is-zero', !(CAMERA_COUNTS.covered > 0));
+  }
+  if (exceptionEl) {
+    exceptionEl.textContent = CAMERA_COUNTS.exception;
+    exceptionEl.classList.toggle('is-zero', !(CAMERA_COUNTS.exception > 0));
+  }
+  if (CURRENT_TYPE === 'camera') applyCameraFilterLabels();
+}
+```
+
+## 3. `index.html` – nút Covered đỏ khi đang chọn
+
+Thêm vào cuối `<head>`:
+
+```html
+<style>
+  #btn-filter-covered.active {
+    background: #ff4d4f !important;
+    border-color: #ff4d4f !important;
+    color: #fff !important;
+  }
+</style>
+```
+
+## 4. `config.json` – số trên ô khớp đúng SQL chi tiết
+
+Sửa mục `queries.dashboard.camera`, giữ nguyên `normal` và `exception`:
+
+```json
+"camera": {
+  "abnormal": "select count(*) as count from itsec_camera_offline_test a inner join itsec_nvr_offline b on a.nvr_ip=b.ipaddress where a.status='0' and (a.excludecamera is null or a.excludecamera='')",
+  "normal": "select count(distinct ipaddress) as count from itsec_camera_offline_test where status='1'",
+  "covered": "select count(*) as count from itsec_camera_offline_test a inner join itsec_nvr_offline b on a.nvr_ip=b.ipaddress where a.status='2' and (a.excludecamera is null or a.excludecamera='')",
+  "exception": "select count(distinct ipaddress) as count from itsec_camera_exception"
+}
+```
+
+## Luồng sau khi sửa
+1. Bấm ô **covered**: modal mở ra, nút **Covered** đỏ, bảng và con số trên đầu modal chỉ gồm camera covered (`camera_covered`).
+2. Bấm lại nút **Covered**: bỏ lọc, bảng hiện cả offline và covered (SQL `camera`, `status<>'1'`).
+3. Bấm nút **Offline**: chuyển sang chỉ camera offline (`camera_offline`).
+
+Hai điểm có thể bạn muốn thêm:
+- **Phân biệt dòng trong danh sách gộp:** SQL `camera` không trả cột trạng thái, nên khi hiện cả hai loại thì không phân biệt được dòng nào là covered, dòng nào là offline. Thêm cột `a.status` ở cuối câu SQL sẽ giải quyết được. Cần thêm tên cột trong `languages.js`, mà tôi chưa xem file đó.
+- **Ô offline:** hiện tôi giữ nguyên mở danh sách đầy đủ. Nếu muốn bấm vào là chỉ hiện offline, đổi thành `openModal('camera','offline')`.
+
+**Bảo mật:** `config.json` đang chứa mật khẩu DB (`10.69.20.68`) trong repo public. Bạn nên đổi mật khẩu đó ngay, chuyển sang biến môi trường và đưa `config.json` vào `.gitignore`.
