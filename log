@@ -1,54 +1,8 @@
-Từ hai ảnh, tôi thấy hai việc cần sửa.
-
-## 1. Ô offline đang hiện 6, đúng ra phải là 3
-
-Ở ảnh 2, nút **Ngoại tuyến** cũng hiện 6 còn **Bị che** hiện 3. Hai chỗ này cùng lấy số từ `dashboard.camera.abnormal`, nên nhiều khả năng câu SQL `abnormal` trong `config.json` **đang chạy thật** dùng `status<>'1'`, tức là đếm cả offline lẫn covered (3 + 3 = 6). Bản trên GitHub ghi `status='0'` nhưng bản chạy thật có vẻ khác.
-
-Sửa `abnormal` trong file đang chạy thành chỉ `status='0'`:
-
-```json
-"abnormal": "select count(*) as count from itsec_camera_offline_test a inner join itsec_nvr_offline b on a.nvr_ip=b.ipaddress where a.status='0' and (a.excludecamera is null or a.excludecamera='')"
-```
-
-Sau đó restart Node. Ô tròn và nút Ngoại tuyến sẽ cùng về 3, vì cùng lấy từ `CAMERA_COUNTS.offline`. Nếu vẫn ra 6 thì trong DB có 6 dòng `status='0'`. Khi đó hãy chạy riêng câu `camera_offline` trong SQL để kiểm tra.
-
-## 2. "Chi tiết Bất thường" mặc định là tổng (offline + covered)
-
-Hiện tại số này bằng số dòng đang hiển thị, nên bấm Bị che thì chỉ còn 3. Trong `renderTable`, thay nhánh tính `total` của camera:
-
-```js
-} else if (type === 'camera' && !isSub) {
-    // Luôn là tổng offline + covered, không phụ thuộc nút lọc đang chọn
-    const sum = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
-    total = (CAMERA_COUNTS.offline === null && CAMERA_COUNTS.covered === null) ? rows.length : sum;
-} else if (type === 'camera_exception') {
-    total = rows.length;
-}
-```
-
-Thay cho nhánh cũ `else if (type === 'camera' || type === 'camera_exception') { total = rows.length; }`.
-
-Để số tổng tự cập nhật khi popup đang mở và dashboard gửi số mới (mỗi 30 giây), thêm hàm này:
-
-```js
-function updateCameraTotal() {
-    if (CURRENT_TYPE !== 'camera') return;
-    const dict = window.i18n[CURRENT_LANG];
-    const total = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
-    document.getElementById('section-count-val').textContent = `${total} ${dict.unit_tai}`;
-}
-```
-
-Rồi gọi nó trong `updateDashboardUI`, ngay sau `applyCameraFilterLabels()` trong khối `if (CURRENT_TYPE === 'camera')`.
-
-## Kết quả mong đợi với số liệu trong ảnh
-
-| Vị trí | Trước | Sau |
-|---|---|---|
-| Ô tròn đỏ (offline) | 6 | 3 |
-| Nút Ngoại tuyến | 6 | 3 |
-| Nút Bị che | 3 | 3 |
-| Chi tiết Bất thường | 3 Thiết bị (khi lọc Bị che) | 6 Thiết bị, không đổi khi bấm lọc |
-| Số dòng trong bảng | theo nút lọc | theo nút lọc |
-
-Tổng ở header bằng offline + covered, còn từng nút cho biết số lượng của mỗi loại.
+<style>
+  #btn-filter-offline.active,
+  #btn-filter-covered.active {
+    background: #ff4d4f !important;
+    border-color: #ff4d4f !important;
+    color: #fff !important;
+  }
+</style>
