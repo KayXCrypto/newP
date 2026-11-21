@@ -1,4 +1,3 @@
-l
 <!DOCTYPE html>
 <html lang="zh-CN">
 
@@ -6,8 +5,8 @@ l
     <meta charset="UTF-8">
     <title>WVN安防设备异常状态监控看板</title>
     <link rel="icon" type="image/png" href="./images/logo.png">
-    <link rel="stylesheet" href="./style/index.css">
-    <link rel="stylesheet" href="./style/layout.css">
+    <link rel="stylesheet" href="./style/index.css?v=7">
+    <link rel="stylesheet" href="./style/layout.css?v=7">
 </head>
 
 <body>
@@ -56,21 +55,24 @@ l
         </div>
 
         <div class="grid-top">
-            <div class="card">
+            <!-- Card camera: lưới 2x2 (oval + số bên phải + nhãn bên dưới)
+                 Hàng 1: Offline | Bị che      Hàng 2: Ngoại lệ | Bình thường -->
+            <div class="card card-camera">
                 <div class="card-title" id="camera-title-text">摄像头离线数量</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <!-- FIX: mở modal KHÔNG lọc -> hiển thị toàn bộ thiết bị (offline + covered) -->
+                        <!-- Bấm: mở popup, lọc sẵn camera OFFLINE (nút Ngoại tuyến đỏ). Bấm lại nút để xem cả offline + covered -->
+                        <div class="circle abnormal clickable" id="camera-abnormal"
+                            onclick="openModal('camera', 'offline')">0
+                        </div>
+                        <div class="circle-label" id="camera-offline-label">离线数(台)</div>
+                    </div>
+                    <div class="circle-wrap">
+                        <!-- Bấm: mở popup, lọc sẵn camera COVERED (nút Bị che đỏ) -->
                         <div class="circle covered clickable" id="camera-covered"
                             onclick="openModal('camera', 'covered')">0
                         </div>
-                        <div class="circle-label" id ="camera-covered-label">遮挡数量(台)</div>
-                    </div>
-                    <div class="circle-wrap">
-                        <!-- FIX: mở modal KHÔNG lọc -> hiển thị toàn bộ thiết bị (offline + covered) -->
-                        <div class="circle abnormal clickable" id="camera-abnormal" onclick="openModal('camera','offline')">0
-                        </div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label" id="camera-covered-label">遮挡数(台)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle exception clickable" id="camera-exception"
@@ -345,9 +347,9 @@ l
     </div>
 
 
-    <script src="./languages.js?v=6"></script>
+    <script src="./languages.js?v=7"></script>
     <script src="./js/mqtt.min.js"></script>
-    <script src="./js/layout.js?v=6"></script>
+    <script src="./js/layout.js?v=7"></script>
     <script>
         // --- BIẾN TOÀN CỤC ---
         let CURRENT_DETAIL_DATA = null;
@@ -355,7 +357,7 @@ l
         let PREVIOUS_TYPE = "";
         let CURRENT_LANG = localStorage.getItem('lang') || 'zh';
         let GLOBAL_CONTACTS_DATA = [];
-        let CAMERA_FILTER = null;          // null = hiển thị tất cả
+        let CAMERA_FILTER = null;          // null = hiển thị tất cả (offline + covered)
         let CAMERA_COUNTS = { offline: null, covered: null, exception: null };   // null = dashboard chưa gửi số
 
         // Loại detail gửi lên server theo nút đang chọn (mỗi loại là 1 SQL trong config.json)
@@ -409,9 +411,6 @@ l
             document.getElementById('contact-title-text').textContent = dict.contact_title;
             document.getElementById('title').textContent = dict.title;
 
-            const coveredLabel = document.getElementById('camera-covered-label');
-            if (coveredLabel) coveredLabel.textContent = `${dict.camera_filter_covered}(${dict.unit_tai})`;
-
             document.title = dict.title;
             document.documentElement.lang = (lang === 'zh' ? 'zh-CN' : (lang === 'vi' ? 'vi-VN' : 'en-US'));
 
@@ -432,6 +431,12 @@ l
                     timeTitleEl.textContent = dict.update_time;
                 }
             });
+
+            // Card camera: nhãn riêng (ghi đè nhãn chung "Bất thường" ở vòng lặp trên)
+            const offLabel = document.getElementById('camera-offline-label');
+            if (offLabel) offLabel.textContent = `${dict.offline_count || dict.camera_filter_offline}(${dict.unit_tai})`;
+            const covLabel = document.getElementById('camera-covered-label');
+            if (covLabel) covLabel.textContent = `${dict.covered || dict.camera_filter_covered}(${dict.unit_tai})`;
 
             const sectionLabel = document.getElementById('section-label-text');
             if (sectionLabel) {
@@ -485,7 +490,7 @@ l
         //   localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
         // Quay lại mặc định:  localStorage.removeItem('mqttUrl'); location.reload();
         const MQTT_WS_URL = localStorage.getItem('mqttUrl') || 'wss://wvnitsec.wistron.com/mqtt';
-        console.log('[WVN] build r6 | MQTT =', MQTT_WS_URL);
+        console.log('[WVN] build r7 | MQTT =', MQTT_WS_URL);
         const mqttClient = mqtt.connect(MQTT_WS_URL, {
             keepalive: 30,
             protocolVersion: 4,
@@ -539,7 +544,7 @@ l
                     const coveredEl = document.getElementById('camera-covered');
 
                     CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;   // = SQL camera_offline
-                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;   // = SQL camera_covered
+                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;    // = SQL camera_covered
                     CAMERA_COUNTS.exception = data.camera.exception ?? 0;
 
                     if (coveredEl) {
@@ -586,7 +591,7 @@ l
             const allType = typeMapping[CURRENT_TYPE];
 
             titleEl.innerHTML = `
-                <button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← Back </button> 
+                <button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← ${dict.back || 'Back'} </button> 
                 <span style="margin-left:10px">ALL - ${dict[CURRENT_TYPE]} - ${dict.abnormal_detail}</span>`;
 
             try {
@@ -700,7 +705,7 @@ l
         async function openPersonnelDetail(subType, id) {
             const dict = window.i18n[CURRENT_LANG];
             const titleEl = document.getElementById('modal-title');
-            titleEl.innerHTML = `<button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← Back </button> <span style="margin-left:10px">${id} - ${dict.abnormal_detail}</span>`;
+            titleEl.innerHTML = `<button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← ${dict.back || 'Back'} </button> <span style="margin-left:10px">${id} - ${dict.abnormal_detail}</span>`;
 
             try {
                 const data = await getMqttData('wvn/security_qas/request/subdetail', { type: subType, id });
@@ -744,7 +749,6 @@ l
                 total = (CAMERA_COUNTS.offline === null && CAMERA_COUNTS.covered === null) ? rows.length : sum;
             } else if (type === 'camera_exception') {
                 total = rows.length;
-
             } else if (!isSub && type.includes('hr')) {
                 rows.forEach(r => total += (parseInt(r[1]) || 0));
             } else {
@@ -816,6 +820,7 @@ l
             return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
         }
 
+        // "Chi tiết Bất thường" của camera = offline + covered (cập nhật khi dashboard gửi số mới)
         function updateCameraTotal() {
             if (CURRENT_TYPE !== 'camera') return;
             const dict = window.i18n[CURRENT_LANG];
