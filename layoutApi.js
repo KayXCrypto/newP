@@ -122,7 +122,8 @@ export default function layoutRouter(pool, logger = console, updatedSql = DEFAUL
                    EXTRACT(EPOCH FROM m.updated_at)::bigint AS version, m.image_rev,
                    COUNT(k.id) AS pins,
                    COUNT(k.id) FILTER (WHERE k.camera_key IS NOT NULL
-                                         AND COALESCE(cams.status,'missing') <> 'online') AS not_online
+                                         AND (COALESCE(cams.status,'missing') = 'offline'
+                                              OR COALESCE(cams.health,'') = 'covered')) AS not_online
             FROM itsec_camera_map m
             LEFT JOIN itsec_camera_map_marker k ON k.map_id = m.id
             LEFT JOIN cams ON cams.camera_key = k.camera_key
