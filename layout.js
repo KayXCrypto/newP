@@ -52,6 +52,16 @@
   function isCustoms(m) {
     return !m.planned && (CUSTOMS.ips.indexOf(m.ip) >= 0 || CUSTOMS.nameRe.test(m.name || ''));
   }
+  // Mỗi camera thuộc đúng MỘT nhóm (ưu tiên: offline > bị che > hải quan > bình thường)
+  // => Bình thường + Hải quan + Offline + Bị che = tổng số camera; "camera lỗi" = Offline + Bị che.
+  function category(m) {
+    if (m.planned) return 'planned';
+    if (m.status === 'offline') return 'offline';
+    if (m.health === 'covered') return 'covered';
+    if (isCustoms(m)) return 'customs';
+    if (m.status === 'online') return 'normal';
+    return 'other';
+  }
 
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
 
@@ -207,8 +217,9 @@
     markers.forEach(function (m) {
       byId[m.id] = m;
       m.customs = isCustoms(m);
-      var yellow = m.customs && m.status !== 'offline';          // offline luôn đỏ
-      var covered = !m.planned && m.health === 'covered';         // bị che: viền đỏ
+      m.cat = category(m);
+      var yellow = m.customs && m.cat !== 'offline';              // offline luôn đỏ
+      var covered = m.cat === 'covered';                          // bị che: viền đỏ
       var h = healthProblem(m);
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
@@ -224,23 +235,25 @@
       el.cones.appendChild(c);
     });
     if (selId && !byId[selId]) select(null);
+    // Số "lỗi" của mặt bằng đang mở = đúng số trên nút "camera lỗi" và chú thích
+    if (plan) {
+      var problems = markers.filter(isBad).length;
+      plan.not_online = problems;
+      var pe = plans.filter(function (x) { return x.id === plan.id; })[0];
+      if (pe) pe.not_online = problems;
+      fillPlanSelect();
+    }
     renderLegend(); updateNext();
   }
   function applyNames() { el.stage.classList.toggle('lay-labels', namesOn); el.names.classList.toggle('on', namesOn); }
 
-  // Chú thích: 4 icon camera cùng một hàng
+  // Chú thích 2 hàng: [Bình thường | Hải quan] / [Offline | Bị che]
   function renderLegend() {
-    var t = T(), n = { normal: 0, offline: 0, covered: 0, customs: 0 };
-    markers.forEach(function (m) {
-      if (m.planned) return;
-      if (m.customs) n.customs++;
-      if (m.status === 'offline') n.offline++;
-      else if (!m.customs && m.status === 'online') n.normal++;
-      if (m.health === 'covered') n.covered++;
-    });
+    var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0 };
+    markers.forEach(function (m) { if (n[m.cat] !== undefined) n[m.cat]++; });
     el.legend.innerHTML = '';
-    [['normal', '', t.lg_normal], ['offline', 'off', t.lg_offline],
-     ['covered', 'cov', t.lg_covered], ['customs', 'cust', t.lg_customs]].forEach(function (it) {
+    [['normal', '', t.lg_normal], ['customs', 'cust', t.lg_customs],
+     ['offline', 'off', t.lg_offline], ['covered', 'cov', t.lg_covered]].forEach(function (it) {
       var chip = mk('span', 'lay-lg');
       var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
       chip.appendChild(ico);
@@ -386,7 +399,7 @@
 
   // ── camera lỗi: mỗi lần bấm nhảy tới camera lỗi kế tiếp ───────────────
   var badIdx = -1;
-  function isBad(m) { return !m.planned && (m.status === 'offline' || !!healthProblem(m)); }
+  function isBad(m) { return m.cat === 'offline' || m.cat === 'covered'; }   // camera lỗi = offline + bị che
   function updateNext() {
     if (!el.next) return;
     var n = markers.filter(isBad).length;
