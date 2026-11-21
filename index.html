@@ -1,4 +1,5 @@
-l<!DOCTYPE html>
+l
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -61,14 +62,13 @@ l<!DOCTYPE html>
                     <div class="circle-wrap">
                         <!-- FIX: mở modal KHÔNG lọc -> hiển thị toàn bộ thiết bị (offline + covered) -->
                         <div class="circle covered clickable" id="camera-covered"
-                            onclick="openModal('camera-covered')">0
+                            onclick="openModal('camera', 'covered')">0
                         </div>
-                        <div class="circle-label">遮挡数量(台)</div>
+                        <div class="circle-label" id ="camera-covered-label">遮挡数量(台)</div>
                     </div>
                     <div class="circle-wrap">
                         <!-- FIX: mở modal KHÔNG lọc -> hiển thị toàn bộ thiết bị (offline + covered) -->
-                        <div class="circle abnormal clickable" id="camera-abnormal"
-                            onclick="openModal('camera')">0
+                        <div class="circle abnormal clickable" id="camera-abnormal" onclick="openModal('camera','offline')">0
                         </div>
                         <div class="circle-label">异常数(台)</div>
                     </div>
@@ -409,6 +409,12 @@ l<!DOCTYPE html>
             document.getElementById('contact-title-text').textContent = dict.contact_title;
             document.getElementById('title').textContent = dict.title;
 
+            const coveredLabel = document.getElementById('camera-covered-label');
+            if (coveredLabel) coveredLabel.textContent = `${dict.camera_filter_covered}(${dict.unit_tai})`;
+
+            document.title = dict.title;
+            document.documentElement.lang = (lang === 'zh' ? 'zh-CN' : (lang === 'vi' ? 'vi-VN' : 'en-US'));
+
             const keys = ['camera', 'nvr', 'face', 'hr_face', 'perm', 'accesscontrol', 'hr_door', 'magnetdoor', 'visitor', 'cameraexception'];
             keys.forEach(key => {
                 const titleEl = document.getElementById(`${key}-title-text`);
@@ -530,20 +536,23 @@ l<!DOCTYPE html>
 
                 if (key === 'camera') {
                     const exceptionEl = document.getElementById('camera-exception');
+                    const coveredEl = document.getElementById('camera-covered');
 
-                    // config: abnormal = status='0' (chỉ ngoại tuyến), covered = status='2' (bị che) -> hai số độc lập
-                    CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;
-                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;
+                    CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;   // = SQL camera_offline
+                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;   // = SQL camera_covered
                     CAMERA_COUNTS.exception = data.camera.exception ?? 0;
 
-                    if (CURRENT_TYPE === 'camera') {
-                        applyCameraFilterLabels();
+                    if (coveredEl) {
+                        coveredEl.textContent = CAMERA_COUNTS.covered;
+                        coveredEl.classList.toggle('blink', CAMERA_COUNTS.covered > 0);
+                        coveredEl.classList.toggle('is-zero', !(CAMERA_COUNTS.covered > 0));
                     }
-
                     if (exceptionEl) {
                         exceptionEl.textContent = CAMERA_COUNTS.exception;
                         exceptionEl.classList.toggle('is-zero', !(CAMERA_COUNTS.exception > 0));
                     }
+                    if (CURRENT_TYPE === 'camera') applyCameraFilterLabels();
+                    updateCameraTotal();
                 }
             });
         }
@@ -729,9 +738,13 @@ l<!DOCTYPE html>
             let total = 0;
             if (type === "visitor") {
                 total = rows.length;
-            } else if (type === 'camera' || type === 'camera_exception') {
-                // Đếm theo số dòng thực tế của bảng để luôn khớp với những gì đang hiển thị
+            } else if (type === 'camera' && !isSub) {
+                // Luôn là tổng offline + covered, không phụ thuộc nút lọc đang chọn
+                const sum = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
+                total = (CAMERA_COUNTS.offline === null && CAMERA_COUNTS.covered === null) ? rows.length : sum;
+            } else if (type === 'camera_exception') {
                 total = rows.length;
+
             } else if (!isSub && type.includes('hr')) {
                 rows.forEach(r => total += (parseInt(r[1]) || 0));
             } else {
@@ -801,6 +814,13 @@ l<!DOCTYPE html>
             if (!isoString) return '';
             const date = new Date(isoString);
             return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        }
+
+        function updateCameraTotal() {
+            if (CURRENT_TYPE !== 'camera') return;
+            const dict = window.i18n[CURRENT_LANG];
+            const total = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
+            document.getElementById('section-count-val').textContent = `${total} ${dict.unit_tai}`;
         }
 
         function updateClock() {
