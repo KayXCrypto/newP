@@ -562,25 +562,113 @@ body {
   display: none !important;
 }
 
-/* Card camera: 4 vòng tròn xếp 2 hàng x 2 cột (giống mẫu)
-   Hàng 1: Offline | Bị che        Hàng 2: Ngoại lệ | Bình thường
-   Vòng tròn giữ đúng kiểu các card khác (tròn, số bên trong, nhãn bên dưới, hiệu ứng vòng sóng);
-   chỉ thu nhỏ vừa phải để 2 hàng vẫn nằm gọn trong card. */
+/* ══════════════════════════════════════════════════════════
+   CARD CAMERA: lưới 2 hàng x 2 cột, mỗi ô = VÒNG TRÒN (giống các card khác) + SỐ ở BÊN PHẢI,
+   nhãn nằm bên dưới vòng tròn.
+   Hàng 1: Offline (đỏ) | Bị che (vàng)      Hàng 2: Ngoại lệ (tím) | Bình thường (xanh)
+   Giữ nguyên id camera-abnormal / camera-covered / camera-exception / camera-normal
+   nên JS cập nhật số và class blink / is-zero vẫn chạy như cũ.
+   Cách làm: phần tử .circle thành hàng ngang; hình tròn màu được vẽ bằng ::before,
+   còn số (text của phần tử) tự nằm bên phải.
+   ══════════════════════════════════════════════════════════ */
 .card-camera .circles-row {
   display: grid;
   grid-template-columns: repeat(2, auto);
   justify-content: center;
-  gap: calc(6px + 1vh) calc(30px + 3vw);
+  gap: calc(6px + 1.2vh) calc(20px + 2.5vw);
   margin-bottom: 14px;
 }
 
+.card-camera .circle-wrap {
+  align-items: flex-start;
+  /* nhãn thẳng mép trái với vòng tròn */
+  gap: 3px;
+}
+
+/* Ô chứa: bỏ nền tròn, xếp ngang [vòng tròn][số] */
 .card-camera .circle {
-  width: clamp(52px, min(7vw, 9.5vh), 80px);
-  height: clamp(52px, min(7vw, 9.5vh), 80px);
+  width: auto;
+  height: auto;
   min-width: 0;
   min-height: 0;
   max-width: none;
   max-height: none;
+  border-radius: 0;
+  background: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+  text-decoration: none !important;
+  justify-content: flex-start;
+  gap: calc(8px + 0.5vw);
+  font-size: calc(18px + 0.9vw);
+  line-height: 1;
+}
+
+/* Vòng tròn màu (cùng gradient với các card khác) */
+.card-camera .circle::before {
+  content: '';
+  flex: 0 0 auto;
+  width: clamp(44px, min(5vw, 8.5vh), 72px);
+  height: clamp(44px, min(5vw, 8.5vh), 72px);
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.card-camera .circle.abnormal::before {
+  background: radial-gradient(circle at 35% 35%, #e83333, #991111);
+  --ring: rgba(220, 50, 50, 0.55);
+}
+
+.card-camera .circle.covered::before {
+  background: radial-gradient(circle at 35% 35%, #ffd45a, #e4a923);
+  --ring: rgba(255, 212, 90, 0.55);
+}
+
+.card-camera .circle.exception::before {
+  background: radial-gradient(circle at 35% 35%, #b58be6, #8a5cc4);
+  --ring: rgba(181, 139, 230, 0.55);
+}
+
+.card-camera .circle.normal::before {
+  background: radial-gradient(circle at 35% 35%, #33aa33, #116611);
+}
+
+/* Vòng sóng lan tỏa (thay cho ::after gốc vốn phủ cả ô chứa) */
+.card-camera .circle::after {
+  display: none !important;
+}
+
+.card-camera .circle.clickable::before {
+  animation: cam-ring 2s infinite;
+}
+
+@keyframes cam-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--ring);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+.card-camera .circle.clickable:hover::before {
+  transform: scale(1.07);
+}
+
+/* Số = 0: vòng tròn đổi sang xanh, không nháy, không click (giống các card khác).
+   Cần độ ưu tiên cao hơn các rule is-zero gốc (đang tô nền cho cả ô chứa) */
+.card-camera .circle.abnormal.is-zero,
+.card-camera .circle.covered.is-zero,
+.card-camera .circle.exception.is-zero {
+  background: none !important;
+}
+
+.card-camera .circle.is-zero::before {
+  background: radial-gradient(circle at 35% 35%, #33aa33, #116611) !important;
+  animation: none !important;
 }
 
 /* Thêm vào cuối file index.css */
