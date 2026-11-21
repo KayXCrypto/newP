@@ -491,13 +491,14 @@ body {
   display: none !important;
 }
 
-/* Trạng thái mặc định của vòng tròn ngoại lệ khi > 0 (Màu cam, chữ gạch chân) */
+/* Ngoại lệ (card camera): màu tím theo thiết kế */
 .circle.exception {
-  background: radial-gradient(circle at 35% 35%, #ff9f1a, #cd7f00);
+  background: radial-gradient(circle at 35% 35%, #b58be6, #8a5cc4);
 }
 
+/* Bị che (card camera): màu vàng theo thiết kế */
 .circle.covered {
-  background: radial-gradient(circle at 35% 35%, #a578E1, #623ca0);
+  background: radial-gradient(circle at 35% 35%, #ffd45a, #e4a923);
 }
 
 .circle.covered.clickable {
@@ -506,7 +507,7 @@ body {
 
 .circle.covered.clickable:hover {
   transform: scale(1.07);
-  box-shadow: 0 0 14px #a578E1;
+  box-shadow: 0 0 14px #ffd45a;
 }
 
 .circle.clickable.covered::after {
@@ -515,7 +516,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(139, 95, 208, 0.532);
+  border: 2px solid rgba(255, 212, 90, 0.5);
   animation: pulse-ring 2s infinite;
 }
 
@@ -525,7 +526,7 @@ body {
 
 .circle.exception.clickable:hover {
   transform: scale(1.07);
-  box-shadow: 0 0 14px #ff9f1a;
+  box-shadow: 0 0 14px #b58be6;
 }
 
 .circle.clickable.exception::after {
@@ -534,7 +535,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(251, 176, 47, 0.532);
+  border: 2px solid rgba(181, 139, 230, 0.5);
   animation: pulse-ring 2s infinite;
 }
 
@@ -546,6 +547,115 @@ body {
   cursor: default;
   box-shadow: none !important;
   transform: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CARD CAMERA (.card-camera): lưới 2x2
+   mỗi ô = OVAL màu + SỐ bên phải, NHÃN nằm bên dưới oval
+   Hàng 1: Offline (đỏ) | Bị che (vàng)
+   Hàng 2: Ngoại lệ (tím) | Bình thường (xanh)
+   Giữ nguyên các id camera-abnormal / camera-covered / camera-exception / camera-normal
+   nên JS cập nhật số và class blink / is-zero vẫn chạy như cũ.
+   ══════════════════════════════════════════════════════════ */
+.card-camera .circles-row {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  justify-content: center;
+  gap: calc(10px + 1vh) calc(24px + 2vw);
+  margin-bottom: 6px;
+}
+
+.card-camera .circle-wrap {
+  align-items: flex-start;
+  /* nhãn thẳng mép trái với oval */
+  gap: 3px;
+}
+
+/* Ô chứa: bỏ nền tròn, thành hàng ngang [oval][số] */
+.card-camera .circle {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  background: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+  text-decoration: none !important;
+  justify-content: flex-start;
+  gap: calc(8px + 0.5vw);
+  font-size: calc(18px + 0.9vw);
+  line-height: 1;
+}
+
+/* Bỏ vòng sóng tròn cũ */
+.card-camera .circle::after {
+  display: none !important;
+}
+
+/* Oval */
+.card-camera .circle::before {
+  content: '';
+  flex: 0 0 auto;
+  width: clamp(48px, 4.2vw, 84px);
+  height: clamp(32px, 2.8vw, 56px);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  transition: filter 0.15s;
+}
+
+.card-camera .circle.abnormal::before {
+  background: radial-gradient(circle at 35% 30%, #e0443a, #a3221a);
+}
+
+.card-camera .circle.covered::before {
+  background: radial-gradient(circle at 35% 30%, #ffd45a, #e4a923);
+}
+
+.card-camera .circle.exception::before {
+  background: radial-gradient(circle at 35% 30%, #b58be6, #8a5cc4);
+}
+
+.card-camera .circle.normal::before {
+  background: radial-gradient(circle at 35% 30%, #63c46a, #3c9a45);
+}
+
+/* Số = 0: oval và số mờ đi (class is-zero do JS gắn). Cần độ ưu tiên cao hơn rule is-zero gốc */
+.card-camera .circle.abnormal.is-zero,
+.card-camera .circle.exception.is-zero {
+  background: none !important;
+}
+
+.card-camera .circle.is-zero {
+  opacity: 0.6;
+}
+
+.card-camera .circle.is-zero::before {
+  filter: saturate(0.35) brightness(0.85);
+}
+
+/* Có lỗi: oval nháy (class blink do JS gắn) */
+.card-camera .circle.blink::before {
+  animation: cam-blink 1s ease-in-out infinite;
+}
+
+@keyframes cam-blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Hover cho ô bấm được */
+.card-camera .circle.clickable:hover::before {
+  filter: brightness(1.18);
+}
+
+/* Giờ cập nhật: canh phải, nhỏ gọn (dùng chung .card-time-footer) */
+.card-camera .card-time-footer {
+  text-align: right;
 }
 
 /* Thêm vào cuối file index.css */
@@ -833,6 +943,7 @@ body {
   background: #fff;
 }
 
+/* ── Nút lọc camera trong popup (Ngoại tuyến / Bị che) ── */
 .camera-filter-bar {
   display: flex;
   gap: 10px;
@@ -853,10 +964,13 @@ body {
   color: #fff;
 }
 
-.btn-filter.active {
-  background: #ff4d4f;
-  border-color: #ff4d4f;
-  color: #fff;
+/* Nút đang chọn: màu đỏ (cả Ngoại tuyến lẫn Bị che) */
+.btn-filter.active,
+#btn-filter-offline.active,
+#btn-filter-covered.active {
+  background: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: #fff !important;
 }
 
 .btn-filter .filter-count {
@@ -871,17 +985,4 @@ body {
 .btn-filter.active .filter-count {
   background: rgba(255, 255, 255, 0.25);
   color: #fff;
-}
-
-#btn-filter-covered.active {
-  background: #ff4d4f !important;
-  border-color: #ff4d4f !important;
-  color: #fff !important;
-}
-
-#btn-filter-offline.active,
-#btn-filter-covered.active {
-  background: #ff4d4f !important;
-  border-color: #ff4d4f !important;
-  color: #fff !important;
 }
