@@ -1,103 +1,51 @@
-Có hai việc: dòng thời gian đang trống, và chữ "⚠" của danh sách mặt bằng cần màu đỏ.
+Mình đã đọc `layout.js` và `layout.css`. Icon chú thích được dựng trong hàm `renderLegend()`, và mình chỉ cần sửa ở hai file này. Mình chưa xem thử kết quả trên màn hình thật, nên bạn kiểm tra giúp rồi báo mình nếu cần chỉnh độ dày nét.
 
-## 1. Cảnh báo màu đỏ trong danh sách mặt bằng
+**1. `js/layout.js`**
 
-Thẻ `<select>` gốc của trình duyệt không cho tô màu riêng một phần chữ, nên "2 ⚠" không thể đỏ riêng được. Bạn cần thay bằng một dropdown tự dựng.
-
-**`layout.js`, trong `build()`:** thay `'<select id="lay-plan"></select>' +` bằng
+Thêm hằng số này ngay dưới dòng `var CAM_SVG = ...`:
 
 ```js
-'<div class="lay-dd" id="lay-plan">' +
-  '<button type="button" class="lay-dd-btn" id="lay-plan-btn"></button>' +
-  '<div class="lay-dd-list" id="lay-plan-list"></div>' +
-'</div>' +
+  // Lớp vẽ chồng lên icon chú thích: offline = 1 gạch chéo, bị che = 3 dấu ngã ngang
+  var LG_FX = {
+    off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+           '<line x1="4" y1="4" x2="16" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
+           '<line x1="4" y1="4" x2="16" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
+         '</svg>',
+    cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+           [6, 10, 14].map(function (y) {
+             var d = 'M4,' + y + ' q3,-3.2 6,0 t6,0';
+             return '<path d="' + d + '" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+                    '<path d="' + d + '" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
+           }).join('') +
+         '</svg>'
+  };
 ```
 
-Sau khối `forEach` gán `el[...]`, thêm:
+Trong `renderLegend()`, sửa dòng:
 
 ```js
-el.planBtn = $('lay-plan-btn'); el.planList = $('lay-plan-list');
-el.planBtn.onclick = function (e) { e.stopPropagation(); el.planList.classList.toggle('open'); };
-document.addEventListener('click', function () { el.planList.classList.remove('open'); });
+      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
 ```
 
-Xóa dòng `el.plan.onchange = ...`.
-
-**Thay `fillPlanSelect`** bằng các hàm sau:
+thành:
 
 ```js
-function fillPlanLabel(node, p) {
-  node.appendChild(document.createTextNode(p.name + ' (' + p.pins));
-  if (p.not_online) {
-    node.appendChild(document.createTextNode(' · '));
-    node.appendChild(mk('span', 'lay-warn', p.not_online + ' ⚠'));
-  }
-  node.appendChild(document.createTextNode(')'));
-}
-function setPlanBtn() {
-  el.planBtn.innerHTML = '';
-  var cur = plan && (plans.filter(function (x) { return x.id === plan.id; })[0] || plan);
-  if (cur) fillPlanLabel(el.planBtn, cur);
-  el.planBtn.appendChild(mk('span', 'lay-dd-caret', ' ▾'));
-}
-function fillPlanSelect() {
-  el.planList.innerHTML = '';
-  var lastB = null;
-  plans.forEach(function (p) {
-    var b = p.building || '';
-    if (b !== lastB) { lastB = b; if (b) el.planList.appendChild(mk('div', 'lay-dd-grp', b)); }
-    var it = mk('div', 'lay-dd-item' + (plan && plan.id === p.id ? ' sel' : ''));
-    fillPlanLabel(it, p);
-    it.onclick = function () { el.planList.classList.remove('open'); openPlan(p.id); };
-    el.planList.appendChild(it);
-  });
-  setPlanBtn();
-}
+      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
 ```
 
-Hai chỗ đang gán `el.plan.value` cần đổi:
-- Trong `openPlan`, thay `el.plan.value = id;` bằng `fillPlanSelect();`
-- Trong `reload`, thay `plan = cur; el.plan.value = cur.id;` bằng `plan = cur; fillPlanSelect();`
+**2. `style/layout.css`**
 
-**CSS, thêm vào `style/layout.css`:**
+Thêm `position: relative;` vào quy tắc `.lay-lg-ico` hiện có, rồi thêm quy tắc mới ngay dưới `.lay-lg-ico svg`:
 
 ```css
-.lay-dd { position: relative; }
-.lay-dd-btn { background:#fff; color:#1f2d3d; border:1px solid #ccd3dd; border-radius:6px;
-              padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
-.lay-dd-list { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:60;
-               min-width:100%; max-height:60vh; overflow:auto; background:#fff; color:#1f2d3d;
-               border:1px solid #ccd3dd; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
-.lay-dd-list.open { display:block; }
-.lay-dd-grp  { padding:5px 10px; font-weight:700; font-size:12px; background:#f3f5f8; }
-.lay-dd-item { padding:5px 16px; font-size:12px; cursor:pointer; white-space:nowrap; }
-.lay-dd-item:hover, .lay-dd-item.sel { background:#e8f0fe; }
-.lay-warn { color:#d93025; font-weight:700; }
+.lay-lg-ico { position: relative; }
+.lay-lg-ico svg.lay-lg-fx { position: absolute; left: 0; top: 0; width: 20px; height: 20px; fill: none; pointer-events: none; }
 ```
 
-Nếu danh sách bị cắt mất, thêm `.lay-head { overflow: visible; }`.
+**Kết quả**
+- **Offline:** nền đỏ, camera trắng và một gạch chéo từ trên-trái xuống dưới-phải. Gạch có viền tối để nhìn rõ trên nền đỏ.
+- **Bị che:** nền xanh có viền đỏ như cũ, camera trắng và 3 dấu `~` xếp ngang chồng lên icon.
 
-## 2. Thời gian chưa hiện
+Sau khi sửa, bạn nhấn Ctrl+F5 để tải lại.
 
-Ô bạn khoanh nằm trống nên `j.updated` chưa tới được giao diện. Nguyên nhân thường là `layoutApi.js` hoặc `server.js` chưa restart, hoặc câu SQL trả về rỗng. Bạn kiểm tra theo thứ tự:
-
-1. Mở trực tiếp `http://<server>:3001/api/layout/maps` và xem có trường `"updated": "2026-..."` không.
-   - Không có trường `updated`: server đang chạy bản cũ, hãy restart Node.
-   - `updated` là `null`: xem log server có dòng `[layout] updated-time SQL lỗi`. Nếu không có lỗi thì bảng `itsec_camera_offline` đang không có dữ liệu cho `max(updatedate)`.
-2. Nếu bước 1 đã đúng mà giao diện vẫn trống, thường là trình duyệt dùng `layout.js` cũ. Đổi `layout.js?v=6` thành `?v=7` rồi tải lại mạnh (Ctrl+F5).
-
-Để dòng này luôn thấy được, ngay cả khi chưa có dữ liệu, sửa `renderUpdated` như sau:
-
-```js
-function renderUpdated() {
-  if (el.updated) el.updated.textContent = T().updated + ': ' + (updatedAt || '--');
-}
-```
-
-Thêm CSS để chữ không bị chìm vào nền tối:
-
-```css
-.lay-updated { margin: 0 12px; font-size: 12px; color: #cfd8e6; white-space: nowrap; }
-```
-
-Nếu sau 2 bước kiểm tra mà vẫn trống, bạn gửi tôi kết quả của `/api/layout/maps` (chỉ cần dòng đầu) và tôi sẽ xử lý tiếp.
+Phần này chỉ đổi icon ở **phần chú thích**. Nếu bạn muốn các ghim trên bản đồ cũng có gạch chéo và dấu `~` giống vậy, mình sẽ viết thêm phần đó.
