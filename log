@@ -1,42 +1,23 @@
-Phần icon trên bản đồ dùng lại đúng hai lớp vẽ chồng (`LG_FX`) mà mình đưa ở lượt trước, nên cần hai chỗ sửa nữa. Mình chưa xem thử kết quả trên màn hình thật.
-
-**1. `js/layout.js`**
-
-Trong `drawAll()`, tìm dòng:
+Mình chưa chạy thử, nhưng chỉ cần sửa một chỗ trong `js/layout.js`, ở khối `CUSTOMS`:
 
 ```js
-      p.dataset.id = m.id; p.innerHTML = CAM_SVG;
+  var CUSTOMS = {
+    ips: [],   // ví dụ: ['172.17.13.142', '172.17.13.143']
+    nameRe: /^\s*HQVN|hai\s*quan|hải\s*quan|customs/i
+  };
 ```
 
-và thay bằng:
+Mình thêm `^\s*HQVN` vào đầu biểu thức. Biểu thức này nhận camera có tên **bắt đầu bằng** `HQVN`, bỏ qua khoảng trắng đầu tên và không phân biệt hoa thường, nên `hqvn-01` cũng được. Tên chỉ chứa `HQVN` ở giữa thì không tính.
+
+Nếu bạn chỉ muốn đúng quy tắc `HQVN` và bỏ nhận theo chữ "hải quan" hoặc "customs", hãy dùng:
 
 ```js
-      p.dataset.id = m.id;
-      // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
-      var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : '');
-      p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
+    nameRe: /^\s*HQVN/i
 ```
 
-Hằng số `LG_FX` đã thêm ở lượt trước (ngay dưới `var CAM_SVG = ...`) nên không cần thêm nữa. Nếu bạn chưa thêm thì phải thêm, vì dòng trên gọi nó.
+**Cách hiển thị**
+- Camera `HQVN...` đang bình thường hiện **màu vàng** trên mặt bằng, cùng vùng nhìn màu vàng và icon chú thích vàng. Chúng được đếm vào mục "Hải quan" ở phần chú thích.
+- Camera `HQVN...` đang **offline** vẫn hiện **đỏ**, theo thứ tự ưu tiên hiện tại (offline > bị che > hải quan > bình thường). Nó được đếm vào Offline, không đếm vào Hải quan.
+- Camera `HQVN...` đang **bị che** giữ viền đỏ và nền vàng, vì code hiện tại chỉ ép đỏ cho camera offline.
 
-**2. `style/layout.css`**
-
-Thêm ngay dưới quy tắc `.lay-pin svg { ... }`:
-
-```css
-/* Lớp gạch chéo / dấu ngã phủ lên ghim camera trên mặt bằng */
-.lay-pin svg.lay-pin-fx { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); fill: none; pointer-events: none; }
-```
-
-Quy tắc này phải đứng sau `.lay-pin svg` để thắng độ ưu tiên, vì `.lay-pin svg` đang ép mọi `svg` trong ghim về cỡ 10px và `fill: currentColor`.
-
-**Kết quả trên mặt bằng**
-- **Camera offline:** ghim đỏ, có một gạch chéo trắng viền tối đè lên icon.
-- **Camera bị che:** ghim giữ viền đỏ như cũ, có thêm 3 dấu `~` trắng nằm ngang trên icon.
-- Camera bình thường và camera hải quan giữ nguyên, không có lớp phủ.
-- Icon phóng to hoặc thu nhỏ cùng ghim theo mức zoom, như trước.
-
-Những điểm cần lưu ý:
-- Với ghim 18px, 3 dấu `~` khá nhỏ. Nếu khó nhìn khi thu nhỏ mặt bằng, bạn tăng `width` và `height` trong quy tắc CSS trên, ví dụ lên 22px, hoặc nhờ mình chỉnh lại nét.
-- Hai thay đổi này chỉ ảnh hưởng icon hiển thị trên màn hình. File PDF xuất ra do `layout_pdf.js` vẽ bằng code riêng nên không đổi. Nếu cần icon trong PDF giống vậy, hãy gửi mình `layout_pdf.js`.
-- Sau khi sửa, nhấn Ctrl+F5.
+Mình chưa chạm vào `layout.css` hay phần icon, vì màu vàng đã có sẵn trong CSS. Sau khi sửa, nhấn Ctrl+F5 để tải lại.
