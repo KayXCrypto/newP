@@ -6,6 +6,10 @@ import express from 'express';
 const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
                          ELSE 'ip:' || host(c.camera_ip::inet) END`;
 
+// Camera hải quan: tên camera bắt đầu bằng HQVN (không phân biệt hoa thường, bỏ qua khoảng trắng đầu).
+// Muốn đổi quy tắc chỉ cần sửa biểu thức này, ví dụ '^[[:space:]]*(HQVN|HQ-)'.
+const CUSTOMS_NAME = '^[[:space:]]*HQVN';
+
 // Câu SQL lấy "thời gian cập nhật" mặc định (server.js có thể truyền Q.getTimes.camera để dùng chung với dashboard)
 const DEFAULT_UPDATED_SQL =
     "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
@@ -70,6 +74,7 @@ function markerSelect(t) {
     SELECT k.id, k.map_id, k.camera_key, k.x, k.y, k.direction, k.fov, k.view_range,
            (k.camera_key IS NULL) AS planned, COALESCE(k.label,'') AS label,
            COALESCE(cams.name, byip.name, k.last_name, k.label, '') AS name,
+           (COALESCE(cams.name, byip.name, k.last_name, k.label, '') ~* '${CUSTOMS_NAME}') AS customs,
            COALESCE(cams.ip, byip.ip, k.last_ip, '') AS ip,
            COALESCE(cams.serial, byip.serial, '') AS serial,
            COALESCE(cams.model, byip.model, '') AS model,
