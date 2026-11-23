@@ -1,23 +1,42 @@
-Mình chưa chạy thử, nhưng chỉ cần sửa một chỗ trong `js/layout.js`, ở khối `CUSTOMS`:
+Mình chưa chạy thử, nhưng bạn có thể bỏ hẳn danh sách IP và để DB quyết định bằng cách thêm một cột `customs` vào câu SQL của API. Màu vàng khi đó dựa trên tên camera `camera_name` trong bảng `itsec_infra_nvr_camera_status`, không cần khai báo IP nào.
+
+**1. `layoutApi.js`**
+
+Thêm hằng số dưới dòng `const CAMERA_KEY = ...`:
 
 ```js
-  var CUSTOMS = {
-    ips: [],   // ví dụ: ['172.17.13.142', '172.17.13.143']
-    nameRe: /^\s*HQVN|hai\s*quan|hải\s*quan|customs/i
-  };
+// Camera hải quan: tên bắt đầu bằng HQVN (không phân biệt hoa thường, bỏ qua khoảng trắng đầu)
+const CUSTOMS_NAME = '^[[:space:]]*HQVN';
 ```
 
-Mình thêm `^\s*HQVN` vào đầu biểu thức. Biểu thức này nhận camera có tên **bắt đầu bằng** `HQVN`, bỏ qua khoảng trắng đầu tên và không phân biệt hoa thường, nên `hqvn-01` cũng được. Tên chỉ chứa `HQVN` ở giữa thì không tính.
-
-Nếu bạn chỉ muốn đúng quy tắc `HQVN` và bỏ nhận theo chữ "hải quan" hoặc "customs", hãy dùng:
+Trong `markerSelect(t)`, thêm một cột ngay sau dòng `COALESCE(cams.name, ...) AS name,`:
 
 ```js
-    nameRe: /^\s*HQVN/i
+           COALESCE(cams.name, byip.name, k.last_name, k.label, '') AS name,
+           (COALESCE(cams.name, byip.name, k.last_name, k.label, '') ~* '${CUSTOMS_NAME}') AS customs,
 ```
 
-**Cách hiển thị**
-- Camera `HQVN...` đang bình thường hiện **màu vàng** trên mặt bằng, cùng vùng nhìn màu vàng và icon chú thích vàng. Chúng được đếm vào mục "Hải quan" ở phần chú thích.
-- Camera `HQVN...` đang **offline** vẫn hiện **đỏ**, theo thứ tự ưu tiên hiện tại (offline > bị che > hải quan > bình thường). Nó được đếm vào Offline, không đếm vào Hải quan.
-- Camera `HQVN...` đang **bị che** giữ viền đỏ và nền vàng, vì code hiện tại chỉ ép đỏ cho camera offline.
+Cột này tự đi vào cả `/markers` lẫn `/find`, vì cả hai đều dùng `markerSelect`.
 
-Mình chưa chạm vào `layout.css` hay phần icon, vì màu vàng đã có sẵn trong CSS. Sau khi sửa, nhấn Ctrl+F5 để tải lại.
+**2. `js/layout.js`**
+
+Thay toàn bộ khối `CUSTOMS` và hàm `isCustoms` bằng:
+
+```js
+  // Camera hải quan do server xác định (tên camera trong DB bắt đầu bằng HQVN)
+  function isCustoms(m) {
+    return !m.planned && m.customs === true;
+  }
+```
+
+Phần còn lại (`category()`, tô vàng, đếm "Hải quan" ở chú thích) giữ nguyên.
+
+**Cách hoạt động**
+- Camera nào có tên bắt đầu bằng `HQVN` trong DB sẽ tự hiện vàng. Thêm hoặc đổi tên camera trên NVR thì màu đổi theo, bạn không phải sửa code.
+- Thứ tự ưu tiên vẫn là offline > bị che > hải quan > bình thường, nên camera `HQVN...` đang offline vẫn hiện đỏ.
+- Muốn đổi quy tắc, bạn chỉ sửa `CUSTOMS_NAME`. Ví dụ `'^[[:space:]]*(HQVN|HQ-)'` để nhận thêm tiền tố `HQ-`.
+- Ghim "dự kiến" (chưa gắn camera) được bỏ qua, nên không bị tô vàng.
+
+Sau khi sửa, restart backend vì `layoutApi.js` chỉ nạp lúc khởi động, rồi nhấn Ctrl+F5.
+
+Nếu sau khi thử mà camera `HQVN` không hiện vàng, bạn gửi mình tên camera hải quan thực tế trong DB, ví dụ `HQVN-01` hay `Cam HQVN 01`. Nếu `HQVN` không nằm đầu tên thì quy tắc `^` ở trên sẽ không khớp, mình sẽ đổi lại cho đúng.
