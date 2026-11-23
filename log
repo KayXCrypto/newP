@@ -1,51 +1,42 @@
-Mình đã đọc `layout.js` và `layout.css`. Icon chú thích được dựng trong hàm `renderLegend()`, và mình chỉ cần sửa ở hai file này. Mình chưa xem thử kết quả trên màn hình thật, nên bạn kiểm tra giúp rồi báo mình nếu cần chỉnh độ dày nét.
+Phần icon trên bản đồ dùng lại đúng hai lớp vẽ chồng (`LG_FX`) mà mình đưa ở lượt trước, nên cần hai chỗ sửa nữa. Mình chưa xem thử kết quả trên màn hình thật.
 
 **1. `js/layout.js`**
 
-Thêm hằng số này ngay dưới dòng `var CAM_SVG = ...`:
+Trong `drawAll()`, tìm dòng:
 
 ```js
-  // Lớp vẽ chồng lên icon chú thích: offline = 1 gạch chéo, bị che = 3 dấu ngã ngang
-  var LG_FX = {
-    off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-           '<line x1="4" y1="4" x2="16" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
-           '<line x1="4" y1="4" x2="16" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
-         '</svg>',
-    cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-           [6, 10, 14].map(function (y) {
-             var d = 'M4,' + y + ' q3,-3.2 6,0 t6,0';
-             return '<path d="' + d + '" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
-                    '<path d="' + d + '" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
-           }).join('') +
-         '</svg>'
-  };
+      p.dataset.id = m.id; p.innerHTML = CAM_SVG;
 ```
 
-Trong `renderLegend()`, sửa dòng:
+và thay bằng:
 
 ```js
-      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
+      p.dataset.id = m.id;
+      // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
+      var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : '');
+      p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
 ```
 
-thành:
-
-```js
-      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
-```
+Hằng số `LG_FX` đã thêm ở lượt trước (ngay dưới `var CAM_SVG = ...`) nên không cần thêm nữa. Nếu bạn chưa thêm thì phải thêm, vì dòng trên gọi nó.
 
 **2. `style/layout.css`**
 
-Thêm `position: relative;` vào quy tắc `.lay-lg-ico` hiện có, rồi thêm quy tắc mới ngay dưới `.lay-lg-ico svg`:
+Thêm ngay dưới quy tắc `.lay-pin svg { ... }`:
 
 ```css
-.lay-lg-ico { position: relative; }
-.lay-lg-ico svg.lay-lg-fx { position: absolute; left: 0; top: 0; width: 20px; height: 20px; fill: none; pointer-events: none; }
+/* Lớp gạch chéo / dấu ngã phủ lên ghim camera trên mặt bằng */
+.lay-pin svg.lay-pin-fx { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); fill: none; pointer-events: none; }
 ```
 
-**Kết quả**
-- **Offline:** nền đỏ, camera trắng và một gạch chéo từ trên-trái xuống dưới-phải. Gạch có viền tối để nhìn rõ trên nền đỏ.
-- **Bị che:** nền xanh có viền đỏ như cũ, camera trắng và 3 dấu `~` xếp ngang chồng lên icon.
+Quy tắc này phải đứng sau `.lay-pin svg` để thắng độ ưu tiên, vì `.lay-pin svg` đang ép mọi `svg` trong ghim về cỡ 10px và `fill: currentColor`.
 
-Sau khi sửa, bạn nhấn Ctrl+F5 để tải lại.
+**Kết quả trên mặt bằng**
+- **Camera offline:** ghim đỏ, có một gạch chéo trắng viền tối đè lên icon.
+- **Camera bị che:** ghim giữ viền đỏ như cũ, có thêm 3 dấu `~` trắng nằm ngang trên icon.
+- Camera bình thường và camera hải quan giữ nguyên, không có lớp phủ.
+- Icon phóng to hoặc thu nhỏ cùng ghim theo mức zoom, như trước.
 
-Phần này chỉ đổi icon ở **phần chú thích**. Nếu bạn muốn các ghim trên bản đồ cũng có gạch chéo và dấu `~` giống vậy, mình sẽ viết thêm phần đó.
+Những điểm cần lưu ý:
+- Với ghim 18px, 3 dấu `~` khá nhỏ. Nếu khó nhìn khi thu nhỏ mặt bằng, bạn tăng `width` và `height` trong quy tắc CSS trên, ví dụ lên 22px, hoặc nhờ mình chỉnh lại nét.
+- Hai thay đổi này chỉ ảnh hưởng icon hiển thị trên màn hình. File PDF xuất ra do `layout_pdf.js` vẽ bằng code riêng nên không đổi. Nếu cần icon trong PDF giống vậy, hãy gửi mình `layout_pdf.js`.
+- Sau khi sửa, nhấn Ctrl+F5.
