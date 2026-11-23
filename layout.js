@@ -44,13 +44,10 @@
       HEALTH_WARN = { blurred: 1, moved: 1, bright: 1, colour: 1, contrast: 1, noisy: 1, bwday: 1, suspect: 1 };
   var STATUSES = ['online', 'offline', 'warning', 'missing', 'planned'];
 
-  // Camera hải quan (hiện màu vàng): khai báo IP và/hoặc nhận theo tên camera.
-  var CUSTOMS = {
-    ips: [],   // ví dụ: ['172.17.13.142', '172.17.13.143']
-    nameRe: /hai\s*quan|hải\s*quan|customs/i
-  };
+  // Camera hải quan (hiện màu vàng): do server xác định theo tên camera trong DB
+  // (tên bắt đầu bằng HQVN) -> cột `customs` trong /markers và /find (xem layoutApi.js).
   function isCustoms(m) {
-    return !m.planned && (CUSTOMS.ips.indexOf(m.ip) >= 0 || CUSTOMS.nameRe.test(m.name || ''));
+    return !m.planned && m.customs === true;
   }
   // Mỗi camera thuộc đúng MỘT nhóm (ưu tiên: offline > bị che > hải quan > bình thường)
   // => Bình thường + Hải quan + Offline + Bị che = tổng số camera; "camera lỗi" = Offline + Bị che.
@@ -64,6 +61,21 @@
   }
 
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
+
+  // Lớp vẽ chồng lên icon: offline = 1 gạch chéo, bị che = 3 dấu ngã ngang
+  var LG_FX = {
+    off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+           '<line x1="4" y1="4" x2="16" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
+           '<line x1="4" y1="4" x2="16" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
+         '</svg>',
+    cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+           [6, 10, 14].map(function (y) {
+             var d = 'M4,' + y + ' q3,-3.2 6,0 t6,0';
+             return '<path d="' + d + '" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+                    '<path d="' + d + '" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
+           }).join('') +
+         '</svg>'
+  };
 
   var lang = 'zh', built = false, timer = null;
   var plans = [], plan = null, markers = [], byId = {}, selId = null, namesOn = false;
@@ -224,7 +236,10 @@
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
         (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (m.id === selId ? ' sel' : ''));
-      p.dataset.id = m.id; p.innerHTML = CAM_SVG;
+      p.dataset.id = m.id;
+      // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
+      var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : '');
+      p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
       p.style.left = (m.x * W) + 'px'; p.style.top = (m.y * H) + 'px';
       p.appendChild(mk('span', 'lbl', m.name || m.ip || '?'));
       el.pins.appendChild(p); m._el = p;
@@ -255,7 +270,7 @@
     [['normal', '', t.lg_normal], ['customs', 'cust', t.lg_customs],
      ['offline', 'off', t.lg_offline], ['covered', 'cov', t.lg_covered]].forEach(function (it) {
       var chip = mk('span', 'lay-lg');
-      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG;
+      var ico = mk('span', 'lay-lg-ico ' + it[1]); ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
       chip.appendChild(ico);
       chip.appendChild(mk('span', 'lay-lg-txt', it[2] + ' ' + n[it[0]]));
       el.legend.appendChild(chip);
