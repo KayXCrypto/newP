@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>WVN安防设备异常状态监控看板</title>
     <link rel="icon" type="image/png" href="./images/logo.png">
-    <link rel="stylesheet" href="./style/index.css?v=7">
+    <link rel="stylesheet" href="./style/index.css?v=8">
     <link rel="stylesheet" href="./style/layout.css?v=7">
 </head>
 
@@ -55,8 +55,10 @@
         </div>
 
         <div class="grid-top">
-            <!-- Card camera: lưới 2x2 (oval + số bên phải + nhãn bên dưới)
-                 Hàng 1: Offline | Bị che      Hàng 2: Ngoại lệ | Bình thường -->
+            <!-- Card camera: lưới 4 cột x 2 hàng (chấm tròn + số bên phải + nhãn bên dưới)
+                 Hàng 1: Offline | Bị che | Bị xoay lệch | Màn hình đen
+                 Hàng 2: Màn hình trắng | Ngoại lệ | Bình thường
+                 (màn hình < 1500px tự chuyển sang 3 cột) -->
             <div class="card card-camera">
                 <div class="card-title" id="camera-title-text">摄像头离线数量</div>
                 <div class="circles-row">
@@ -73,6 +75,18 @@
                             onclick="openModal('camera', 'covered')">0
                         </div>
                         <div class="circle-label" id="camera-covered-label">遮挡数(台)</div>
+                    </div>
+                    <div class="circle-wrap">
+                        <div class="circle rotated is-zero" id="camera-rotated">0</div>
+                        <div class="circle-label" id="camera-rotated-label">偏移数(台)</div>
+                    </div>
+                    <div class="circle-wrap">
+                        <div class="circle black is-zero" id="camera-black">0</div>
+                        <div class="circle-label" id="camera-black-label">黑屏数(台)</div>
+                    </div>
+                    <div class="circle-wrap">
+                        <div class="circle white is-zero" id="camera-white">0</div>
+                        <div class="circle-label" id="camera-white-label">白屏数(台)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle exception clickable" id="camera-exception"
@@ -347,7 +361,7 @@
     </div>
 
 
-    <script src="./languages.js?v=7"></script>
+    <script src="./languages.js?v=8"></script>
     <script src="./js/mqtt.min.js"></script>
     <script src="./js/layout.js?v=7"></script>
     <script>
@@ -438,6 +452,12 @@
             const covLabel = document.getElementById('camera-covered-label');
             if (covLabel) covLabel.textContent = `${dict.covered || dict.camera_filter_covered}(${dict.unit_tai})`;
 
+            // 3 ô phụ: bị xoay lệch / màn hình đen / màn hình trắng
+            [['black', 'black_screen'], ['white', 'white_screen'], ['rotated', 'rotated']].forEach(([k, dk]) => {
+                const lb = document.getElementById(`camera-${k}-label`);
+                if (lb) lb.textContent = `${dict[dk] || dk}(${dict.unit_tai})`;
+            });
+
             const sectionLabel = document.getElementById('section-label-text');
             if (sectionLabel) {
                 sectionLabel.textContent = (dict.abnormal_detail || "Abnormal Detail") + ":";
@@ -490,7 +510,7 @@
         //   localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
         // Quay lại mặc định:  localStorage.removeItem('mqttUrl'); location.reload();
         const MQTT_WS_URL = localStorage.getItem('mqttUrl') || 'wss://wvnitsec.wistron.com/mqtt';
-        console.log('[WVN] build r7 | MQTT =', MQTT_WS_URL);
+        console.log('[WVN] build r8 | MQTT =', MQTT_WS_URL);
         const mqttClient = mqtt.connect(MQTT_WS_URL, {
             keepalive: 30,
             protocolVersion: 4,
@@ -556,6 +576,25 @@
                         exceptionEl.textContent = CAMERA_COUNTS.exception;
                         exceptionEl.classList.toggle('is-zero', !(CAMERA_COUNTS.exception > 0));
                     }
+
+                    // 3 ô phụ: màn hình đen / màn hình trắng / bị xoay lệch
+                    ['black', 'white', 'rotated'].forEach(k => {
+                        const el = document.getElementById('camera-' + k);
+                        if (!el) return;
+
+                        const n = data.camera[k] ?? 0;
+
+                        el.textContent = n;
+
+                        if (n > 0) {
+                            el.classList.remove('is-zero');
+                            el.classList.add('blink');
+                        } else {
+                            el.classList.add('is-zero');
+                            el.classList.remove('blink');
+                        }
+                    });
+
                     if (CURRENT_TYPE === 'camera') applyCameraFilterLabels();
                     updateCameraTotal();
                 }
@@ -676,8 +715,18 @@
             document.getElementById('overlay').classList.add('active');
 
             // 'camera_exception' -> backend dùng key 'cameraexception'
-            const requestType = (type === 'camera_exception') ? 'cameraexception' : (type === 'camera' ? cameraDetailType() : type);
-            const titleKey = dict[type] || dict[requestType] || type;
+            const requestType =
+                (type === 'camera_exception')
+                    ? 'cameraexception'
+                    : (type === 'camera')
+                        ? cameraDetailType()
+                        : (type === 'camera_rotated')
+                            ? 'camera_rotated'
+                            : (type === 'camera_black')
+                                ? 'camera_black'
+                                : (type === 'camera_white')
+                                    ? 'camera_white'
+                                    : type; const titleKey = dict[type] || dict[requestType] || type;
             document.getElementById('modal-title').textContent = `${titleKey} - ${dict.abnormal_detail}`;
 
             CURRENT_DETAIL_DATA = null;
@@ -766,8 +815,15 @@
 
             // --- Dựng bảng ---
             // Camera (offline/covered) và camera_exception có cột ✏️ để sửa ghi chú / lý do
-            const showEdit = !isSub && (type === 'camera' || type === 'camera_exception');
-            const displayCols = showEdit ? [...(cols || []), '&#9998;'] : (cols || []);
+            const showEdit =
+                !isSub &&
+                (
+                    type === 'camera' ||
+                    type === 'camera_exception' ||
+                    type === 'camera_rotated' ||
+                    type === 'camera_black' ||
+                    type === 'camera_white'
+                ); const displayCols = showEdit ? [...(cols || []), '&#9998;'] : (cols || []);
 
             let html = `<table class="detail-table">
                 <thead>
@@ -1071,4 +1127,4 @@
     </script>
 </body>
 
-</html>
+</html
