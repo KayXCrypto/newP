@@ -572,47 +572,52 @@ body {
    còn số (text của phần tử) tự nằm bên phải.
    ══════════════════════════════════════════════════════════ */
 .card-camera .circles-row {
-  display: grid;
-  grid-template-columns: repeat(2, auto);
-  justify-content: center;
-  gap: calc(6px + 1.2vh) calc(20px + 2.5vw);
-  margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 10px;
+    width: 100%;
+    justify-items: center;
+    align-items: start;
 }
 
 .card-camera .circle-wrap {
-  align-items: flex-start;
-  /* nhãn thẳng mép trái với vòng tròn */
-  gap: 3px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    min-width:110px;
 }
 
 /* Ô chứa: bỏ nền tròn, xếp ngang [vòng tròn][số] */
 .card-camera .circle {
-  width: auto;
-  height: auto;
-  min-width: 0;
-  min-height: 0;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
-  background: none !important;
-  box-shadow: none !important;
-  transform: none !important;
-  animation: none !important;
-  text-decoration: none !important;
-  justify-content: flex-start;
-  gap: calc(8px + 0.5vw);
-  font-size: calc(18px + 0.9vw);
-  line-height: 1;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:flex-start;
+    gap:15px;
+
+    width:auto;
+    height:auto;
+    min-width:auto;
+    min-height:auto;
+    max-width:none;
+    max-height:none;
+
+    background:none !important;
+    border-radius:0;
+    box-shadow:none !important;
+
+    font-size:36px;
+    font-weight:bold;
+    line-height:1;
 }
 
 /* Vòng tròn màu (cùng gradient với các card khác) */
 .card-camera .circle::before {
-  content: '';
-  flex: 0 0 auto;
-  width: clamp(30px, min(5vw, 8.5vh), 55px);
-  height: clamp(30px, min(5vw, 8.5vh), 55px);
-  border-radius: 50%;
-  transition: transform 0.15s;
+    content:'';
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    flex-shrink:0;
 }
 
 .card-camera .circle.abnormal::before {
@@ -1013,4 +1018,25 @@ body {
 .btn-filter.active .filter-count {
   background: rgba(255, 255, 255, 0.25);
   color: #fff;
+}
+/* Có lỗi => đỏ */
+.card-camera .circle.rotated::before,
+.card-camera .circle.black::before,
+.card-camera .circle.white::before {
+    background: radial-gradient(circle at 35% 35%, #e83333, #991111);
+    --ring: rgba(220,50,50,.55);
+}
+/* = 0 thì xanh */
+.card-camera .circle.rotated.is-zero::before,
+.card-camera .circle.black.is-zero::before,
+.card-camera .circle.white.is-zero::before,
+.card-camera .circle.abnormal.is-zero::before,
+.card-camera .circle.covered.is-zero::before,
+.card-camera .circle.exception.is-zero::before {
+    background: radial-gradient(circle at 35% 35%, #33aa33, #116611) !important;
+}
+.card-camera .circle.rotated:not(.is-zero)::before,
+.card-camera .circle.black:not(.is-zero)::before,
+.card-camera .circle.white:not(.is-zero)::before {
+    animation: cam-ring 2s infinite;
 }
