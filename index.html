@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>WVN安防设备异常状态监控看板</title>
     <link rel="icon" type="image/png" href="./images/logo.png">
-    <link rel="stylesheet" href="./style/index.css?v=8">
+    <link rel="stylesheet" href="./style/index.css?v=9">
     <link rel="stylesheet" href="./style/layout.css?v=7">
 </head>
 
@@ -55,43 +55,39 @@
         </div>
 
         <div class="grid-top">
-            <!-- Card camera: lưới 4 cột x 2 hàng (chấm tròn + số bên phải + nhãn bên dưới)
-                 Hàng 1: Offline | Bị che | Bị xoay lệch | Màn hình đen
-                 Hàng 2: Màn hình trắng | Ngoại lệ | Bình thường
-                 (màn hình < 1500px tự chuyển sang 3 cột) -->
+            <!-- Card camera: Offline | Bị che | Xoay lệch | Đen | Trắng | Ngoại lệ | Bình thường.
+                 5 ô lỗi đều mở cùng popup camera, nút lọc tương ứng được chọn sẵn -->
             <div class="card card-camera">
                 <div class="card-title" id="camera-title-text">摄像头离线数量</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <!-- Bấm: mở popup, lọc sẵn camera OFFLINE (nút Ngoại tuyến đỏ). Bấm lại nút để xem cả offline + covered -->
                         <div class="circle abnormal clickable" id="camera-abnormal"
-                            onclick="openModal('camera', 'offline')">0
-                        </div>
+                            onclick="openModal('camera', 'offline')">0</div>
                         <div class="circle-label" id="camera-offline-label">离线数(台)</div>
                     </div>
                     <div class="circle-wrap">
-                        <!-- Bấm: mở popup, lọc sẵn camera COVERED (nút Bị che đỏ) -->
                         <div class="circle covered clickable" id="camera-covered"
-                            onclick="openModal('camera', 'covered')">0
-                        </div>
+                            onclick="openModal('camera', 'covered')">0</div>
                         <div class="circle-label" id="camera-covered-label">遮挡数(台)</div>
                     </div>
                     <div class="circle-wrap">
-                        <div class="circle rotated is-zero" id="camera-rotated">0</div>
+                        <div class="circle rotated clickable is-zero" id="camera-rotated"
+                            onclick="openModal('camera', 'rotated')">0</div>
                         <div class="circle-label" id="camera-rotated-label">偏移数(台)</div>
                     </div>
                     <div class="circle-wrap">
-                        <div class="circle black is-zero" id="camera-black">0</div>
+                        <div class="circle black clickable is-zero" id="camera-black"
+                            onclick="openModal('camera', 'black')">0</div>
                         <div class="circle-label" id="camera-black-label">黑屏数(台)</div>
                     </div>
                     <div class="circle-wrap">
-                        <div class="circle white is-zero" id="camera-white">0</div>
+                        <div class="circle white clickable is-zero" id="camera-white"
+                            onclick="openModal('camera', 'white')">0</div>
                         <div class="circle-label" id="camera-white-label">白屏数(台)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle exception clickable" id="camera-exception"
-                            onclick="openModal('camera_exception')">0
-                        </div>
+                            onclick="openModal('camera_exception')">0</div>
                         <div class="circle-label" id="camera-exception-label">例外数(台)</div>
                     </div>
                     <div class="circle-wrap">
@@ -128,8 +124,7 @@
                 <div class="card-title" id='face-title-text'>人脸机离线数量</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <div class="circle abnormal clickable" id="face-abnormal" onclick="openModal('face')">0
-                        </div>
+                        <div class="circle abnormal clickable" id="face-abnormal" onclick="openModal('face')">0</div>
                         <div class="circle-label">异常数(台)</div>
                     </div>
                     <div class="circle-wrap">
@@ -147,9 +142,7 @@
                 <div class="card-title" id='hr_face-title-text'>人事资料同步异常数(人脸)</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <div class="circle abnormal clickable" id="hr_face-abnormal" onclick="openModal('hr_face')">
-                            0
-                        </div>
+                        <div class="circle abnormal clickable" id="hr_face-abnormal" onclick="openModal('hr_face')">0</div>
                         <div class="circle-label">异常数(人)</div>
                     </div>
                     <div class="circle-wrap">
@@ -167,8 +160,7 @@
                 <div class="card-title" id='perm-title-text'>人脸权限同步异常数</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <div class="circle abnormal clickable" id="perm-abnormal" onclick="openModal('perm')">0
-                        </div>
+                        <div class="circle abnormal clickable" id="perm-abnormal" onclick="openModal('perm')">0</div>
                         <div class="circle-label">异常数(台)</div>
                     </div>
                     <div class="circle-wrap">
@@ -205,9 +197,7 @@
                 <div class="card-title" id='hr_door-title-text'>人事资料同步异常数(门禁)</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <div class="circle abnormal clickable" id="hr_door-abnormal" onclick="openModal('hr_door')">
-                            0
-                        </div>
+                        <div class="circle abnormal clickable" id="hr_door-abnormal" onclick="openModal('hr_door')">0</div>
                         <div class="circle-label">异常数(人)</div>
                     </div>
                     <div class="circle-wrap">
@@ -226,8 +216,7 @@
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="magnetdoor-abnormal"
-                            onclick="openModal('magnetdoor')">0
-                        </div>
+                            onclick="openModal('magnetdoor')">0</div>
                         <div class="circle-label">异常数(台)</div>
                     </div>
                     <div class="circle-wrap">
@@ -245,9 +234,7 @@
                 <div class="card-title" id='visitor-title-text'>访客未出厂异常数</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
-                        <div class="circle abnormal clickable" id="visitor-abnormal" onclick="openModal('visitor')">
-                            0
-                        </div>
+                        <div class="circle abnormal clickable" id="visitor-abnormal" onclick="openModal('visitor')">0</div>
                         <div class="circle-label">异常数(人)</div>
                     </div>
                     <div class="circle-wrap">
@@ -281,10 +268,11 @@
                             style="cursor: pointer; text-decoration: underline; color: #ff4d4f;">0</span>
                     </div>
                     <div id="camera-filter-bar" class="camera-filter-bar" style="display:none;">
-                        <button class="btn-filter" id="btn-filter-offline"
-                            onclick="setCameraFilter('offline')"></button>
-                        <button class="btn-filter" id="btn-filter-covered"
-                            onclick="setCameraFilter('covered')"></button>
+                        <button class="btn-filter" id="btn-filter-offline" onclick="setCameraFilter('offline')"></button>
+                        <button class="btn-filter" id="btn-filter-covered" onclick="setCameraFilter('covered')"></button>
+                        <button class="btn-filter" id="btn-filter-rotated" onclick="setCameraFilter('rotated')"></button>
+                        <button class="btn-filter" id="btn-filter-black" onclick="setCameraFilter('black')"></button>
+                        <button class="btn-filter" id="btn-filter-white" onclick="setCameraFilter('white')"></button>
                     </div>
                     <div id="modal-table-container"></div>
                 </div>
@@ -361,9 +349,9 @@
     </div>
 
 
-    <script src="./languages.js?v=8"></script>
+    <script src="./languages.js?v=9"></script>
     <script src="./js/mqtt.min.js"></script>
-    <script src="./js/layout.js?v=7"></script>
+    <script src="./js/layout.js?v=8"></script>
     <script>
         // --- BIẾN TOÀN CỤC ---
         let CURRENT_DETAIL_DATA = null;
@@ -371,33 +359,40 @@
         let PREVIOUS_TYPE = "";
         let CURRENT_LANG = localStorage.getItem('lang') || 'zh';
         let GLOBAL_CONTACTS_DATA = [];
-        let CAMERA_FILTER = null;          // null = hiển thị tất cả (offline + covered)
-        let CAMERA_COUNTS = { offline: null, covered: null, exception: null };   // null = dashboard chưa gửi số
+        let CAMERA_FILTER = null;          // null = hiển thị tất cả
+
+        const CAMERA_FILTERS = ['offline', 'covered', 'rotated', 'black', 'white'];
+        let CAMERA_COUNTS = { offline: null, covered: null, rotated: null, black: null, white: null, exception: null };
 
         // Loại detail gửi lên server theo nút đang chọn (mỗi loại là 1 SQL trong config.json)
         function cameraDetailType() {
-            if (CAMERA_FILTER === 'offline') return 'camera_offline';
-            if (CAMERA_FILTER === 'covered') return 'camera_covered';
-            return 'camera';
+            return CAMERA_FILTERS.includes(CAMERA_FILTER) ? 'camera_' + CAMERA_FILTER : 'camera';
         }
 
-        // Mỗi nút lọc có SQL riêng trong config.json (camera / camera_offline / camera_covered)
+        // Tổng tất cả loại lỗi camera (hiển thị khi không lọc)
+        function cameraTotal() {
+            return CAMERA_FILTERS.reduce((s, k) => s + (CAMERA_COUNTS[k] ?? 0), 0);
+        }
+
         async function fetchCameraDetail() {
             return await getMqttData('wvn/security_qas/request/detail', { type: cameraDetailType() });
         }
 
         function applyCameraFilterLabels() {
             const dict = window.i18n[CURRENT_LANG];
-            const btnOff = document.getElementById('btn-filter-offline');
-            const btnCov = document.getElementById('btn-filter-covered');
-            const nOff = CAMERA_COUNTS.offline ?? 0;
-            const nCov = CAMERA_COUNTS.covered ?? 0;
-
-            btnOff.innerHTML = `${dict.camera_filter_offline} <span class="filter-count">${nOff}</span>`;
-            btnCov.innerHTML = `${dict.camera_filter_covered} <span class="filter-count">${nCov}</span>`;
-
-            btnOff.classList.toggle('active', CAMERA_FILTER === 'offline');
-            btnCov.classList.toggle('active', CAMERA_FILTER === 'covered');
+            const labels = {
+                offline: dict.camera_filter_offline,
+                covered: dict.camera_filter_covered,
+                rotated: dict.camera_filter_rotated,
+                black: dict.camera_filter_black,
+                white: dict.camera_filter_white
+            };
+            CAMERA_FILTERS.forEach(k => {
+                const btn = document.getElementById('btn-filter-' + k);
+                if (!btn) return;
+                btn.innerHTML = `${labels[k]} <span class="filter-count">${CAMERA_COUNTS[k] ?? 0}</span>`;
+                btn.classList.toggle('active', CAMERA_FILTER === k);
+            });
         }
 
         // Bấm lần nữa vào nút đang chọn thì bỏ lọc, quay lại hiển thị tất cả
@@ -409,7 +404,7 @@
             const seq = ++CAMERA_REQ_SEQ;
             try {
                 const data = await fetchCameraDetail();
-                if (seq !== CAMERA_REQ_SEQ || CURRENT_TYPE !== 'camera') return;   // bỏ kết quả cũ nếu đã bấm nút khác
+                if (seq !== CAMERA_REQ_SEQ || CURRENT_TYPE !== 'camera') return;
                 CURRENT_DETAIL_DATA = data;
                 renderTable(data.rows, 'camera');
             } catch (e) { console.error(e); }
@@ -446,13 +441,12 @@
                 }
             });
 
-            // Card camera: nhãn riêng (ghi đè nhãn chung "Bất thường" ở vòng lặp trên)
+            // Card camera: nhãn riêng
             const offLabel = document.getElementById('camera-offline-label');
             if (offLabel) offLabel.textContent = `${dict.offline_count || dict.camera_filter_offline}(${dict.unit_tai})`;
             const covLabel = document.getElementById('camera-covered-label');
             if (covLabel) covLabel.textContent = `${dict.covered || dict.camera_filter_covered}(${dict.unit_tai})`;
 
-            // 3 ô phụ: bị xoay lệch / màn hình đen / màn hình trắng
             [['black', 'black_screen'], ['white', 'white_screen'], ['rotated', 'rotated']].forEach(([k, dk]) => {
                 const lb = document.getElementById(`camera-${k}-label`);
                 if (lb) lb.textContent = `${dict[dk] || dk}(${dict.unit_tai})`;
@@ -506,11 +500,10 @@
         }
 
         // --- KẾT NỐI MQTT ---
-        // Mặc định dùng broker trên máy chủ. Để thử với server.js chạy local, mở F12 Console rồi gõ:
-        //   localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
+        // Thử với server.js local: localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
         // Quay lại mặc định:  localStorage.removeItem('mqttUrl'); location.reload();
         const MQTT_WS_URL = localStorage.getItem('mqttUrl') || 'wss://wvnitsec.wistron.com/mqtt';
-        console.log('[WVN] build r8 | MQTT =', MQTT_WS_URL);
+        console.log('[WVN] build r9 | MQTT =', MQTT_WS_URL);
         const mqttClient = mqtt.connect(MQTT_WS_URL, {
             keepalive: 30,
             protocolVersion: 4,
@@ -563,8 +556,8 @@
                     const exceptionEl = document.getElementById('camera-exception');
                     const coveredEl = document.getElementById('camera-covered');
 
-                    CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;   // = SQL camera_offline
-                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;    // = SQL camera_covered
+                    CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;
+                    CAMERA_COUNTS.covered = data.camera.covered ?? 0;
                     CAMERA_COUNTS.exception = data.camera.exception ?? 0;
 
                     if (coveredEl) {
@@ -583,6 +576,7 @@
                         if (!el) return;
 
                         const n = data.camera[k] ?? 0;
+                        CAMERA_COUNTS[k] = n;
 
                         el.textContent = n;
 
@@ -707,7 +701,7 @@
             document.getElementById('modal-section-header').style.display = 'block';
             document.getElementById('btn-excel-download').style.display = 'block';
             document.getElementById('btn-camera-map').style.display = (type === 'camera') ? 'block' : 'none';
-            CAMERA_FILTER = (type === 'camera') ? presetFilter : null;   // null = hiển thị tất cả
+            CAMERA_FILTER = (type === 'camera') ? presetFilter : null;
             document.getElementById('camera-filter-bar').style.display = (type === 'camera') ? 'flex' : 'none';
             applyCameraFilterLabels();
             applyCameraMapLabels();
@@ -716,17 +710,10 @@
 
             // 'camera_exception' -> backend dùng key 'cameraexception'
             const requestType =
-                (type === 'camera_exception')
-                    ? 'cameraexception'
-                    : (type === 'camera')
-                        ? cameraDetailType()
-                        : (type === 'camera_rotated')
-                            ? 'camera_rotated'
-                            : (type === 'camera_black')
-                                ? 'camera_black'
-                                : (type === 'camera_white')
-                                    ? 'camera_white'
-                                    : type; const titleKey = dict[type] || dict[requestType] || type;
+                (type === 'camera_exception') ? 'cameraexception'
+                    : (type === 'camera') ? cameraDetailType()
+                        : type;
+            const titleKey = dict[type] || dict[requestType] || type;
             document.getElementById('modal-title').textContent = `${titleKey} - ${dict.abnormal_detail}`;
 
             CURRENT_DETAIL_DATA = null;
@@ -750,6 +737,25 @@
         function openCameraMap() { LayoutViewer.open({ lang: CURRENT_LANG }); }
         function closeCameraMap() { LayoutViewer.close(); }
 
+        // Lấy IP camera của 1 dòng. Ưu tiên ô có dạng IPv4 khác NVR IP (row[1]), nếu không có thì dùng row[4]
+        function getRowCameraIp(row) {
+            const ipRe = /^\d{1,3}(\.\d{1,3}){3}$/;
+            const nvrIp = String(row[1] ?? '').trim();
+            const cands = row.slice(0, 7)
+                .map(c => String(c ?? '').trim())
+                .filter(c => ipRe.test(c) && c !== nvrIp);
+            return cands.length ? cands[cands.length - 1] : (row[4] ?? '');
+        }
+
+        // Mở layout và nhảy tới đúng camera (IP -> NVR IP + kênh -> tên camera)
+        function openCameraMapAt(btn) {
+            const d = btn.dataset;
+            if (!d.ip && !d.name) return;
+            LayoutViewer.open({
+                lang: CURRENT_LANG,
+                locate: { ip: d.ip, nvr: d.nvr, ch: d.ch, name: d.name }
+            });
+        }
 
         async function openPersonnelDetail(subType, id) {
             const dict = window.i18n[CURRENT_LANG];
@@ -793,9 +799,9 @@
             if (type === "visitor") {
                 total = rows.length;
             } else if (type === 'camera' && !isSub) {
-                // Luôn là tổng offline + covered, không phụ thuộc nút lọc đang chọn
-                const sum = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
-                total = (CAMERA_COUNTS.offline === null && CAMERA_COUNTS.covered === null) ? rows.length : sum;
+                // Luôn là tổng cả 5 loại, không phụ thuộc nút lọc đang chọn
+                const allNull = CAMERA_FILTERS.every(k => CAMERA_COUNTS[k] === null);
+                total = allNull ? rows.length : cameraTotal();
             } else if (type === 'camera_exception') {
                 total = rows.length;
             } else if (!isSub && type.includes('hr')) {
@@ -814,16 +820,14 @@
             countVal.textContent = `${total} ${isPeople ? dict.unit_ren : dict.unit_tai}`;
 
             // --- Dựng bảng ---
-            // Camera (offline/covered) và camera_exception có cột ✏️ để sửa ghi chú / lý do
-            const showEdit =
-                !isSub &&
-                (
-                    type === 'camera' ||
-                    type === 'camera_exception' ||
-                    type === 'camera_rotated' ||
-                    type === 'camera_black' ||
-                    type === 'camera_white'
-                ); const displayCols = showEdit ? [...(cols || []), '&#9998;'] : (cols || []);
+            // Camera: cột 📍 (xem vị trí trên layout) + cột ✏️ (sửa ghi chú / lý do)
+            const showEdit = !isSub && (type === 'camera' || type === 'camera_exception');
+            const showMap = !isSub && type === 'camera';
+            const displayCols = [
+                ...(cols || []),
+                ...(showMap ? ['&#128205;'] : []),
+                ...(showEdit ? ['&#9998;'] : [])
+            ];
 
             let html = `<table class="detail-table">
                 <thead>
@@ -847,7 +851,7 @@
                         trAttr = `onclick="openPersonnelDetail('${subType}', '${identifier}')" style="cursor:pointer" class="clickable-row"`;
                     }
 
-                    // row = [nvr_name(0), nvr_ip(1), nvr_cameraid(2), name(3), ipaddress(4), hours(5), offlinetime(6), updatedate(7), excludecamera(8), ...]
+                    // row = [nvr_name(0), nvr_ip(1), nvr_cameraid(2), name(3), ipaddress(4), hours(5), offlinetime(6), updatedate(7), excludecamera(8), remark(9)]
                     let editBtn = '';
                     if (showEdit) {
                         editBtn = `<td onclick="event.stopPropagation()">
@@ -859,10 +863,23 @@
                         </td>`;
                     }
 
+                    let mapBtn = '';
+                    if (showMap) {
+                        const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                        mapBtn = `<td onclick="event.stopPropagation()">
+                            <button class="btn-map-pin" title="${dict.camera_layout}"
+                                data-ip="${esc(getRowCameraIp(row))}"
+                                data-nvr="${esc(row[1])}"
+                                data-ch="${esc(row[2])}"
+                                data-name="${esc(row[3])}"
+                                onclick="openCameraMapAt(this)">&#128205;</button>
+                        </td>`;
+                    }
+
                     return `<tr ${trAttr}>
                 <td>${index + 1}</td>
                 ${row.map(cell => `<td>${cell ?? ''}</td>`).join('')}
-                ${editBtn}
+                ${mapBtn}${editBtn}
             </tr>`;
                 }).join('');
             }
@@ -876,12 +893,11 @@
             return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
         }
 
-        // "Chi tiết Bất thường" của camera = offline + covered (cập nhật khi dashboard gửi số mới)
+        // "Chi tiết Bất thường" của camera = tổng 5 loại lỗi
         function updateCameraTotal() {
             if (CURRENT_TYPE !== 'camera') return;
             const dict = window.i18n[CURRENT_LANG];
-            const total = (CAMERA_COUNTS.offline ?? 0) + (CAMERA_COUNTS.covered ?? 0);
-            document.getElementById('section-count-val').textContent = `${total} ${dict.unit_tai}`;
+            document.getElementById('section-count-val').textContent = `${cameraTotal()} ${dict.unit_tai}`;
         }
 
         function updateClock() {
@@ -935,7 +951,6 @@
         let PENDING_EDIT_BTN_EL = null;
         let EDIT_ROW_DATA = null;
 
-        // Được gọi khi click nút Edit trong bảng
         function handleEditClick(event, rowIndex) {
             event.stopPropagation();
             const btn = event.currentTarget;
@@ -1058,7 +1073,7 @@
                 `${cols[4]}: <b style="color:#fff">${cameraName}</b><br>` +
                 `${dict.modifyKey}: <b style="color:#fff"> ${ip} | ${id}</b>`;
 
-            document.getElementById('edit-exclude-input').value = row[8] || '';   // excludecamera
+            document.getElementById('edit-exclude-input').value = row[8] || '';
             document.getElementById('edit-status-msg').textContent = '';
             document.getElementById('edit-overlay').classList.add('active');
         }
@@ -1076,7 +1091,6 @@
             const statusEl = document.getElementById('edit-status-msg');
             const dict = window.i18n[CURRENT_LANG];
 
-            // row = [nvr_name(0), nvr_ip(1), nvr_cameraid(2), name(3), ipaddress(4), ...]
             const row = EDIT_ROW_DATA;
             const nvrIp = row[1];
             const nvr_cameraid = row[2];
@@ -1127,4 +1141,4 @@
     </script>
 </body>
 
-</html
+</html>
