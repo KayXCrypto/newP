@@ -66,7 +66,7 @@
 
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
 
-  // Lớp vẽ chồng lên icon: offline = 1 gạch chéo, bị che = 3 gạch chéo, bị xoay lệch = camera + mũi tên xoay
+  // Lớp vẽ chồng lên icon: offline = 1 gạch chéo, bị che = 3 gạch chéo, bị xoay lệch = mũi tên xoay bên dưới
 var LG_FX = {
 
   off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
@@ -79,14 +79,11 @@ var LG_FX = {
               '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
      }).join('') +
      '</svg>',
+  // bị xoay lệch: giữ nguyên icon camera, chỉ thêm mũi tên xoay (cung tròn) bên dưới
   rot: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-     // thân camera
-     '<rect x="5" y="5" width="10" height="7" rx="1.5" fill="none" stroke="#fff" stroke-width="1.5"/>' +
-     // ống kính
-     '<circle cx="10" cy="8.5" r="2" fill="none" stroke="#fff" stroke-width="1.3"/>' +
-     // mũi tên xoay
-     '<path d="M4,14 Q10,19 16,14" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>' +
-     '<polygon points="14,12.5 17,14 14,15.5" fill="#fff"/>' +
+     '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+     '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>' +
+     '<polygon points="15.8,14.2 14.6,17.6 12.4,15.4" fill="#fff" stroke="rgba(0,0,0,.45)" stroke-width="1" stroke-linejoin="round"/>' +
      '</svg>'
 
 };
@@ -246,7 +243,7 @@ var LG_FX = {
       m.cat = category(m);
       var yellow = m.customs && m.cat !== 'offline';              // offline luôn đỏ
       var covered = m.cat === 'covered';                          // bị che: viền đỏ
-      var rotated = m.cat === 'rotated';                          // bị xoay lệch: màu tím
+      var rotated = m.cat === 'rotated';                          // bị xoay lệch: nền xanh như camera thường + mũi tên xoay
       var h = healthProblem(m);
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
@@ -254,8 +251,7 @@ var LG_FX = {
       p.dataset.id = m.id;
       // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
       var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : (rotated ? LG_FX.rot : ''));
-      // icon bị xoay lệch tự có hình camera + mũi tên, nên không vẽ chồng CAM_SVG
-      p.innerHTML = (rotated ? '' : CAM_SVG) + fx.replace('lay-lg-fx', 'lay-pin-fx');
+      p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
       p.style.left = (m.x * W) + 'px'; p.style.top = (m.y * H) + 'px';
       p.appendChild(mk('span', 'lbl', m.name || m.ip || '?'));
       el.pins.appendChild(p); m._el = p;
@@ -288,7 +284,7 @@ var LG_FX = {
      ['rotated', 'rot', t.lg_rotated]].forEach(function (it) {
       var chip = mk('span', 'lay-lg');
       var ico = mk('span', 'lay-lg-ico ' + it[1]);
-      ico.innerHTML = (it[1] === 'rot' ? '' : CAM_SVG) + (LG_FX[it[1]] || '');
+      ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
       chip.appendChild(ico);
       chip.appendChild(mk('span', 'lay-lg-txt', it[2] + ' ' + n[it[0]]));
       el.legend.appendChild(chip);
