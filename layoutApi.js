@@ -6,20 +6,14 @@ import express from 'express';
 const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
                          ELSE 'ip:' || host(c.camera_ip::inet) END`;
 
-// Camera hải quan: tên camera bắt đầu bằng HQVN (không phân biệt hoa thường, bỏ qua khoảng trắng đầu).
-// Muốn đổi quy tắc chỉ cần sửa biểu thức này, ví dụ '^[[:space:]]*(HQVN|HQ-)'.
+// Camera hải quan: tên camera bắt đầu bằng HQVN
 const CUSTOMS_NAME = '^[[:space:]]*HQVN';
-
-// Camera hải quan còn được nhận theo bảng itsec_camera_health: dòng nào chứa 'HQVN' (ở bất kỳ cột nào) là hải quan.
-// Khi biết đúng tên cột, thay h::text bằng cột đó cho chính xác hơn, ví dụ: h.camera_name ~* '^[[:space:]]*HQVN'
 const CUSTOMS_TAG = 'HQVN';
 
-// Câu SQL lấy "thời gian cập nhật" mặc định (server.js có thể truyền Q.getTimes.camera để dùng chung với dashboard)
 const DEFAULT_UPDATED_SQL =
     "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
 
-// Nhiều mức truy vấn: nếu DB thật thiếu cột/bảng phụ (camera_health, camera_locations,
-// detect_result...) thì tự hạ mức, ghim vẫn hiện thay vì lỗi 500.
+// Nhiều mức truy vấn: nếu DB thiếu cột/bảng phụ thì tự hạ mức
 const TIERS = [
     { detect: true,  health: true,  loc: true  },
     { detect: true,  health: false, loc: false },
@@ -83,6 +77,8 @@ function markerSelect(t) {
            (COALESCE(cams.customs, byip.customs, FALSE)
             OR COALESCE(cams.name, byip.name, k.last_name, k.label, '') ~* '${CUSTOMS_NAME}') AS customs,
            COALESCE(cams.ip, byip.ip, k.last_ip, '') AS ip,
+           COALESCE(k.last_ip,'')   AS last_ip,
+           COALESCE(k.last_name,'') AS last_name,
            COALESCE(cams.serial, byip.serial, '') AS serial,
            COALESCE(cams.model, byip.model, '') AS model,
            COALESCE(cams.channels, byip.channels, '') AS channels,
@@ -102,9 +98,8 @@ function markerSelect(t) {
 
 export default function layoutRouter(pool, logger = console, updatedSql = DEFAULT_UPDATED_SQL) {
     const r = express.Router();
-    let tier = 0;   // mức truy vấn đã chạy được
+    let tier = 0;
 
-    // Chạy truy vấn; lỗi thì hạ mức rồi thử lại.
     async function run(build, params = []) {
         let lastErr;
         for (let i = tier; i < TIERS.length; i++) {
@@ -142,7 +137,6 @@ export default function layoutRouter(pool, logger = console, updatedSql = DEFAUL
             GROUP BY m.id
             ORDER BY COALESCE(m.building,''), m.sort_order, m.name`);
 
-        // Thời gian cập nhật dữ liệu: lấy từ SQL. Lỗi ở đây không làm hỏng danh sách mặt bằng.
         let updated = null;
         try {
             updated = (await pool.query(updatedSql)).rows[0]?.updatedate || null;
@@ -165,7 +159,34 @@ export default function layoutRouter(pool, logger = console, updatedSql = DEFAUL
             JOIN itsec_camera_map m ON m.id = p.map_id
             WHERE LOWER(p.name) LIKE $1 OR p.ip LIKE $1 OR LOWER(p.serial) LIKE $1
                   OR LOWER(p.channels) LIKE $1 OR LOWER(p.label) LIKE $1
+                  OR p.last_ip LIKE $1 OR LOWER(p.last_name) LIKE $1
             ORDER BY p.name LIMIT 50`, [q]);
+        res.json({ ok: true, rows: rows.map(toMarker) });
+    }));
+
+    // Tìm vị trí 1 camera lỗi từ dashboard: ưu tiên IP -> NVR IP + kênh -> tên camera
+    r.get('/locate', safe(async (req, res) => {
+        const s = (v) => String(v || '').trim().slice(0, 100);
+        const ip = s(req.query.ip);
+        const name = s(req.query.name).toLowerCase();
+        const nvr = s(req.query.nvr);
+        const ch = s(req.query.ch);
+        const chKey = nvr && ch ? `${nvr} CH${ch}` : '';
+
+        const { rows } = await run((t) => `
+            WITH ${camerasCte(t)}
+            SELECT * FROM (
+                SELECT p.*, m.name AS map_name,
+                       CASE WHEN $1::text <> '' AND (p.ip = $1::text OR p.last_ip = $1::text) THEN 1
+                            WHEN $3::text <> '' AND $3::text = ANY(string_to_array(p.channels, ', ')) THEN 2
+                            WHEN $2::text <> '' AND (LOWER(p.name) = $2::text OR LOWER(p.last_name) = $2::text) THEN 3
+                       END AS rank
+                FROM (${markerSelect(t)}) p
+                JOIN itsec_camera_map m ON m.id = p.map_id
+            ) x
+            WHERE rank IS NOT NULL
+            ORDER BY rank, id
+            LIMIT 5`, [ip, name, chKey]);
         res.json({ ok: true, rows: rows.map(toMarker) });
     }));
 
