@@ -63,19 +63,29 @@
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
 
   // Lớp vẽ chồng lên icon: offline = 1 gạch chéo, bị che = 3 dấu ngã ngang
-  var LG_FX = {
-    off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-           '<line x1="4" y1="4" x2="16" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
-           '<line x1="4" y1="4" x2="16" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
-         '</svg>',
-    cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-           [6, 10, 14].map(function (y) {
-             var d = 'M4,' + y + ' q3,-3.2 6,0 t6,0';
-             return '<path d="' + d + '" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
-                    '<path d="' + d + '" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
-           }).join('') +
-         '</svg>'
-  };
+var LG_FX = {
+
+  off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+       '<line x1="16" y1="4" x2="4" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
+       '<line x1="16" y1="4" x2="4" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
+       '</svg>',
+  cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+     [0, 3, 6].map(function(offset) {
+       return '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+              '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
+     }).join('') +
+     '</svg>',
+  rot: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+     // thân camera
+     '<rect x="5" y="5" width="10" height="7" rx="1.5" fill="none" stroke="#fff" stroke-width="1.5"/>' +
+     // ống kính
+     '<circle cx="10" cy="8.5" r="2" fill="none" stroke="#fff" stroke-width="1.3"/>' +
+     // mũi tên xoay
+     '<path d="M4,14 Q10,19 16,14" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>' +
+     '<polygon points="14,12.5 17,14 14,15.5" fill="#fff"/>' +
+     '</svg>'
+
+};
 
   var lang = 'zh', built = false, timer = null;
   var plans = [], plan = null, markers = [], byId = {}, selId = null, namesOn = false;
