@@ -22,6 +22,7 @@
 .lay-lg-ico.off  { background: #d93025; }
 .lay-lg-ico.cov  { background: #1e9e57; box-shadow: 0 0 0 2px #d93025; }
 .lay-lg-ico.cust { background: #f5c400; }
+.lay-lg-ico.rot  { background: #1e9e57; box-shadow: 0 0 0 2px #f5c400; }   /* bị xoay lệch: nền xanh, viền vàng */
 .lay-lg-txt { line-height: 20px; }
 
 /* Thời gian cập nhật: nhỏ gọn */
@@ -66,6 +67,7 @@
 .lay-pin.hl-bad::before, .lay-pin.hl-warn::before { content: "!"; position: absolute; top: -9px; right: -9px; width: 13px; height: 13px; border-radius: 50%; color: #fff; font: 700 9px/13px sans-serif; text-align: center; border: 1px solid #fff; }
 .lay-pin.hl-bad::before { background: #d93025; } .lay-pin.hl-warn::before { background: #e69b00; }
 .lay-pin.cust { background: #f5c400 !important; border-color: #fff3c4 !important; }   /* hải quan: vàng */
+.lay-pin.rot  { outline: 3px solid #f5c400; outline-offset: 0; }                      /* bị xoay lệch: viền vàng */
 .lay-pin.cov  { outline: 3px solid #d93025; outline-offset: 0; }                      /* bị che: viền đỏ */
 .lay-pin.pulse::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 3px solid var(--st); animation: layPulse 1s ease-out 4; }
 @keyframes layPulse { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
