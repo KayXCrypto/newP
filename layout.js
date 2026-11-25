@@ -29,9 +29,9 @@
   Object.keys(EXTRA).forEach(function (k) { for (var f in EXTRA[k]) L10N[k][f] = EXTRA[k][f]; });
   // Chú thích (4 loại) và nhãn thời gian cập nhật
   var EXTRA2 = {
-    zh: { lg_normal: '正常',        lg_offline: '离线',        lg_covered: '遮挡',    lg_customs: '海关',     lg_rotated: '角度偏移',   updated: '资料更新时间' },
-    vi: { lg_normal: 'Bình thường', lg_offline: 'Ngoại tuyến', lg_covered: 'Bị che',  lg_customs: 'Hải quan', lg_rotated: 'Bị xoay lệch', updated: 'Thời gian cập nhật' },
-    en: { lg_normal: 'Normal',      lg_offline: 'Offline',     lg_covered: 'Covered', lg_customs: 'Customs',  lg_rotated: 'Moved',    updated: 'Updated' }
+    zh: { lg_normal: '正常',        lg_offline: '离线',        lg_covered: '遮挡',    lg_customs: '海关',     lg_rotated: '角度偏移',   lg_black: '黑屏',          lg_white: '白屏',           updated: '资料更新时间' },
+    vi: { lg_normal: 'Bình thường', lg_offline: 'Ngoại tuyến', lg_covered: 'Bị che',  lg_customs: 'Hải quan', lg_rotated: 'Bị xoay lệch', lg_black: 'Màn hình đen', lg_white: 'Màn hình trắng', updated: 'Thời gian cập nhật' },
+    en: { lg_normal: 'Normal',      lg_offline: 'Offline',     lg_covered: 'Covered', lg_customs: 'Customs',  lg_rotated: 'Moved',    lg_black: 'Black screen', lg_white: 'White screen', updated: 'Updated' }
   };
   Object.keys(EXTRA2).forEach(function (k) { for (var f in EXTRA2[k]) L10N[k][f] = EXTRA2[k][f]; });
 
@@ -54,10 +54,15 @@
   // Camera bị xoay lệch: trạng thái hình ảnh (camera_health.state) là 'colour' (và 'moved').
   // Muốn đổi điều kiện chỉ cần sửa danh sách này.
   var ROTATED_HEALTH = { colour: 1, moved: 1 };
+  // Màn hình đen / màn hình trắng: theo camera_health.state. Sửa danh sách nếu DB dùng giá trị khác.
+  var BLACK_HEALTH = { black: 1 };
+  var WHITE_HEALTH = { white: 1, bright: 1 };
   function category(m) {
     if (m.planned) return 'planned';
     if (m.status === 'offline') return 'offline';
     if (m.health === 'covered') return 'covered';
+    if (BLACK_HEALTH[m.health]) return 'black';
+    if (WHITE_HEALTH[m.health]) return 'white';
     if (ROTATED_HEALTH[m.health]) return 'rotated';
     if (isCustoms(m)) return 'customs';
     if (m.status === 'online') return 'normal';
@@ -247,7 +252,7 @@ var LG_FX = {
       var h = healthProblem(m);
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
-        (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (rotated ? ' rot' : '') + (m.id === selId ? ' sel' : ''));
+        (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (rotated ? ' rot' : '') + (m.cat === 'black' ? ' blk' : '') + (m.cat === 'white' ? ' wht' : '') + (m.id === selId ? ' sel' : ''));
       p.dataset.id = m.id;
       // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
       var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : (rotated ? LG_FX.rot : ''));
@@ -257,7 +262,7 @@ var LG_FX = {
       el.pins.appendChild(p); m._el = p;
       var c = document.createElementNS(SVGNS, 'path');
       c.setAttribute('d', conePath(m));
-      c.setAttribute('class', 'lay-cone ' + stClass(m) + (yellow ? ' cust' : '') + (rotated ? ' rot' : '') +
+      c.setAttribute('class', 'lay-cone ' + stClass(m) + (yellow ? ' cust' : '') + (m.cat === 'black' ? ' blk' : '') + (m.cat === 'white' ? ' wht' : '') +
         (m.id === selId ? ' sel' : '') + (m.planned ? ' planned' : ''));
       el.cones.appendChild(c);
     });
@@ -274,14 +279,14 @@ var LG_FX = {
   }
   function applyNames() { el.stage.classList.toggle('lay-labels', namesOn); el.names.classList.toggle('on', namesOn); }
 
-  // Chú thích xếp 2 hàng theo cột: [Bình thường / Hải quan] [Offline / Bị che] [Bị xoay lệch]
+  // Chú thích xếp 2 hàng theo cột: [Bình thường / Hải quan] [Offline / Bị che] [Bị xoay lệch / Màn hình đen] [Màn hình trắng]
   function renderLegend() {
-    var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0, rotated: 0 };
+    var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0, rotated: 0, black: 0, white: 0 };
     markers.forEach(function (m) { if (n[m.cat] !== undefined) n[m.cat]++; });
     el.legend.innerHTML = '';
     [['normal', '', t.lg_normal], ['customs', 'cust', t.lg_customs],
      ['offline', 'off', t.lg_offline], ['covered', 'cov', t.lg_covered],
-     ['rotated', 'rot', t.lg_rotated]].forEach(function (it) {
+     ['rotated', 'rot', t.lg_rotated], ['black', 'blk', t.lg_black], ['white', 'wht', t.lg_white]].forEach(function (it) {
       var chip = mk('span', 'lay-lg');
       var ico = mk('span', 'lay-lg-ico ' + it[1]);
       ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
