@@ -1,159 +1,105 @@
 ## Cách làm
 
-Thay vì mỗi ô mở một popup riêng, cả 5 ô (Offline, Bị che, Xoay lệch, Đen, Trắng) sẽ mở **cùng một popup camera**, giống như Offline hiện tại. Popup có đủ 5 nút lọc và nút **Xem layout**, và ô nào được bấm thì nút lọc tương ứng sẽ được chọn sẵn.
+Thêm cột 📍 vào bảng chi tiết camera. Bấm vào thì mở layout, tự chuyển sang đúng mặt bằng, zoom vào camera, chọn camera đó và nhấp nháy. Layout đã có sẵn cơ chế tìm theo IP (`LayoutViewer.open({ q })`), nên chỉ cần sửa nhỏ.
 
-Nút layout và cột ✏️ đã hoạt động cho `type === 'camera'`, nên không cần sửa thêm.
+## 1. `index.html` (JS)
 
-## 1. `index.html` (phần HTML)
-
-**a) Sửa 3 ô** để gọi `openModal('camera', ...)` thay vì `camera_rotated/black/white` như tôi hướng dẫn lần trước:
-
-```html
-<div class="circle-wrap">
-    <div class="circle rotated clickable is-zero" id="camera-rotated"
-        onclick="openModal('camera', 'rotated')">0</div>
-    <div class="circle-label" id="camera-rotated-label">偏移数(台)</div>
-</div>
-<div class="circle-wrap">
-    <div class="circle black clickable is-zero" id="camera-black"
-        onclick="openModal('camera', 'black')">0</div>
-    <div class="circle-label" id="camera-black-label">黑屏数(台)</div>
-</div>
-<div class="circle-wrap">
-    <div class="circle white clickable is-zero" id="camera-white"
-        onclick="openModal('camera', 'white')">0</div>
-    <div class="circle-label" id="camera-white-label">白屏数(台)</div>
-</div>
-```
-
-**b) Thanh lọc trong popup**, thay toàn bộ `<div id="camera-filter-bar" ...>`:
-
-```html
-<div id="camera-filter-bar" class="camera-filter-bar" style="display:none;">
-    <button class="btn-filter" id="btn-filter-offline" onclick="setCameraFilter('offline')"></button>
-    <button class="btn-filter" id="btn-filter-covered" onclick="setCameraFilter('covered')"></button>
-    <button class="btn-filter" id="btn-filter-rotated" onclick="setCameraFilter('rotated')"></button>
-    <button class="btn-filter" id="btn-filter-black" onclick="setCameraFilter('black')"></button>
-    <button class="btn-filter" id="btn-filter-white" onclick="setCameraFilter('white')"></button>
-</div>
-```
-
-## 2. `index.html` (phần JS)
-
-**a) Thay khối biến và 2 hàm đầu script** (từ `let CAMERA_COUNTS` đến hết `applyCameraFilterLabels`):
+**a)** Trong `renderTable`, thay dòng `const displayCols = ...` bằng:
 
 ```js
-const CAMERA_FILTERS = ['offline', 'covered', 'rotated', 'black', 'white'];
-let CAMERA_COUNTS = { offline: null, covered: null, rotated: null, black: null, white: null, exception: null };
+const showMap = !isSub && type === 'camera';
+const displayCols = [
+    ...(cols || []),
+    ...(showMap ? ['&#128205;'] : []),
+    ...(showEdit ? ['&#9998;'] : [])
+];
+```
 
-// Loại detail gửi lên server theo nút đang chọn (mỗi loại là 1 SQL trong config.json)
-function cameraDetailType() {
-    return CAMERA_FILTERS.includes(CAMERA_FILTER) ? 'camera_' + CAMERA_FILTER : 'camera';
-}
+**b)** Cũng trong `renderTable`, ngay trước `return \`<tr ${trAttr}>` thêm:
 
-// Tổng tất cả loại lỗi camera (hiển thị khi không lọc)
-function cameraTotal() {
-    return CAMERA_FILTERS.reduce((s, k) => s + (CAMERA_COUNTS[k] ?? 0), 0);
-}
-
-async function fetchCameraDetail() {
-    return await getMqttData('wvn/security_qas/request/detail', { type: cameraDetailType() });
-}
-
-function applyCameraFilterLabels() {
-    const dict = window.i18n[CURRENT_LANG];
-    const labels = {
-        offline: dict.camera_filter_offline,
-        covered: dict.camera_filter_covered,
-        rotated: dict.camera_filter_rotated,
-        black: dict.camera_filter_black,
-        white: dict.camera_filter_white
-    };
-    CAMERA_FILTERS.forEach(k => {
-        const btn = document.getElementById('btn-filter-' + k);
-        if (!btn) return;
-        btn.innerHTML = `${labels[k]} <span class="filter-count">${CAMERA_COUNTS[k] ?? 0}</span>`;
-        btn.classList.toggle('active', CAMERA_FILTER === k);
-    });
+```js
+let mapBtn = '';
+if (showMap) {
+    const camIp = String(getRowCameraIp(row)).replace(/"/g, '&quot;');
+    mapBtn = `<td onclick="event.stopPropagation()">
+        <button class="btn-map-pin" title="${dict.camera_layout}"
+            data-ip="${camIp}" onclick="openCameraMapAt(this.dataset.ip)">&#128205;</button>
+    </td>`;
 }
 ```
 
-**b) Trong `updateDashboardUI`**, sửa khối `if (key === 'camera')`:
+và đổi cuối dòng `<tr>` từ `${editBtn}` thành `${mapBtn}${editBtn}`:
 
 ```js
-CAMERA_COUNTS.offline = data.camera.abnormal ?? 0;
-CAMERA_COUNTS.covered = data.camera.covered ?? 0;
-CAMERA_COUNTS.exception = data.camera.exception ?? 0;
+return `<tr ${trAttr}>
+    <td>${index + 1}</td>
+    ${row.map(cell => `<td>${cell ?? ''}</td>`).join('')}
+    ${mapBtn}${editBtn}
+</tr>`;
 ```
 
-và trong vòng lặp `['black', 'white', 'rotated'].forEach(k => {...})`, ngay sau dòng `const n = data.camera[k] ?? 0;` thêm:
+**c)** Thêm 2 hàm cạnh `openCameraMap`:
 
 ```js
-CAMERA_COUNTS[k] = n;
-```
+// Lấy IP camera của 1 dòng. Ưu tiên ô có dạng IPv4 khác NVR IP (row[1]), nếu không có thì dùng row[4]
+function getRowCameraIp(row) {
+    const ipRe = /^\d{1,3}(\.\d{1,3}){3}$/;
+    const nvrIp = String(row[1] ?? '').trim();
+    const cands = row.slice(0, 7)
+        .map(c => String(c ?? '').trim())
+        .filter(c => ipRe.test(c) && c !== nvrIp);
+    return cands.length ? cands[cands.length - 1] : (row[4] ?? '');
+}
 
-**c) Trong `renderTable`**, thay nhánh tính tổng của camera:
-
-```js
-} else if (type === 'camera' && !isSub) {
-    // Luôn là tổng cả 5 loại, không phụ thuộc nút lọc đang chọn
-    const allNull = CAMERA_FILTERS.every(k => CAMERA_COUNTS[k] === null);
-    total = allNull ? rows.length : cameraTotal();
+// Mở layout và nhảy tới đúng camera theo IP
+function openCameraMapAt(ip) {
+    if (!ip) return;
+    LayoutViewer.open({ lang: CURRENT_LANG, q: ip, exact: true });
 }
 ```
 
-**d) Thay hàm `updateCameraTotal`:**
+## 2. `layout.js`
+
+Trong hàm `open`, thay khối `if (opts.q) {...}` bằng:
 
 ```js
-function updateCameraTotal() {
-    if (CURRENT_TYPE !== 'camera') return;
-    const dict = window.i18n[CURRENT_LANG];
-    document.getElementById('section-count-val').textContent = `${cameraTotal()} ${dict.unit_tai}`;
+if (opts.q) {
+  el.q.value = opts.q;
+  doFind().then(function (rows) {
+    rows = rows || [];
+    // ưu tiên khớp đúng IP; exact=true thì không đoán bừa camera gần giống
+    var hit = rows.filter(function (m) { return m.ip === opts.q; })[0] || (opts.exact ? null : rows[0]);
+    el.find.classList.remove('open');
+    if (hit) jumpTo(hit);
+    else {
+      el.note.textContent = T().noRes;
+      setTimeout(function () { el.note.textContent = ''; }, 2500);
+    }
+  });
 }
 ```
 
-## 3. `languages.js`
+Việc so khớp đúng IP tránh trường hợp `172.17.65.5` nhảy nhầm sang `172.17.65.52`.
 
-**a) Thêm nhãn nút lọc**, cạnh `camera_filter_covered` của từng ngôn ngữ:
-
-```js
-// zh
-camera_filter_rotated: "偏移",
-camera_filter_black: "黑屏",
-camera_filter_white: "白屏",
-
-// vi
-camera_filter_rotated: "Bị xoay lệch",
-camera_filter_black: "Màn hình đen",
-camera_filter_white: "Màn hình trắng",
-
-// en
-camera_filter_rotated: "Rotated",
-camera_filter_black: "Black Screen",
-camera_filter_white: "White Screen",
-```
-
-**b) Xóa khối `camExtraTitles / camExtraCols`** tôi đưa lần trước ở cuối file, vì không còn dùng nữa.
-
-**c) Xóa cột `'Type'` / `'类型'` / `'Loại'`** khỏi `cols_map.camera` của cả 3 ngôn ngữ. SQL chỉ trả 10 cột nhưng tiêu đề đang có thừa 1 cột, nên bảng bị lệch tiêu đề.
-
-## 4. `index.css`
-
-Cho thanh lọc xuống dòng khi màn hình nhỏ (5 nút khá dài):
+## 3. `index.css`
 
 ```css
-.camera-filter-bar {
-  flex-wrap: wrap;
+.btn-map-pin {
+  background: #1e6fd9;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
 }
+.btn-map-pin:hover { background: #1a5bb0; }
 ```
 
-Nút đang chọn sẽ tự đổi sang màu đỏ nhờ `.btn-filter.active` đã có sẵn.
+## Lưu ý
 
-## Kết quả
-
-- Bấm ô **Offline / Bị che / Xoay lệch / Đen / Trắng** thì popup camera mở ra với nút tương ứng đang sáng và danh sách đã lọc.
-- Bấm nút khác để chuyển loại, bấm lại nút đang chọn để xem tất cả. Số tổng ở "Chi tiết bất thường" là tổng cả 5 loại.
-- Nút **Xem layout** và nút ✏️ chỉnh sửa hoạt động như ở Offline.
-- Tăng version `languages.js?v=9` và `index.css?v=9` để trình duyệt tải bản mới.
-
-Lưu ý: SQL `camera` (khi không lọc) dùng `status<>'1'`, nên tổng hiển thị (cộng 5 loại) có thể lệch với số dòng thực tế nếu còn camera có status khác `0,2,3,4,5`. Nếu thấy lệch, hãy kiểm tra giá trị `status` trong bảng `itsec_camera_offline_test`.
+- Cột 📍 chỉ xuất hiện ở popup camera (Offline / Bị che / Xoay lệch / Đen / Trắng). Cột tiêu đề tự thêm bằng JS nên không cần sửa `languages.js`.
+- Nếu camera chưa được đặt ghim trên layout nào, sẽ hiện thông báo "Không có kết quả" trong layout.
+- Trong ảnh, bảng vẫn còn cột **"Loại"** thừa so với SQL. Hãy xóa `'Type'`, `'类型'`, `'Loại'` khỏi `cols_map.camera` như tôi đã nói ở lượt trước. Hàm `getRowCameraIp` đã xử lý được cả khi cột bị lệch.
+- Tăng version `index.css?v=9`, `layout.js?v=8` để trình duyệt tải bản mới.
