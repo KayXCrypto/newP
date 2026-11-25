@@ -1,7 +1,8 @@
 /* layout.js — Camera Layout viewer, chạy thẳng trong dashboard (không iframe).
- * Dùng: LayoutViewer.open({ lang: 'zh'|'vi'|'en', q: '10.1.2.3' })   // q tùy chọn: nhảy tới camera
+ * Dùng: LayoutViewer.open({ lang: 'zh'|'vi'|'en', q: '10.1.2.3' })                 // tìm theo từ khóa
+ *       LayoutViewer.open({ lang, locate: { ip, nvr, ch, name } })                // nhảy tới đúng camera lỗi (dashboard)
  *       LayoutViewer.close();  LayoutViewer.setLang('vi');
- * Dữ liệu: GET /api/layout/maps, /:id/markers, /:id/image, /find?q=   (layoutApi.js)
+ * Dữ liệu: GET /api/layout/maps, /:id/markers, /:id/image, /find?q=, /locate?ip=&nvr=&ch=&name=
  */
 (function () {
   var API = '/api/layout', REFRESH_MS = 15000, SVGNS = 'http://www.w3.org/2000/svg';
@@ -20,14 +21,12 @@
           ok: 'OK', pins: 'cameras', fit: 'Fit',
           h: { offline: 'No connection', black: 'Black picture', covered: 'Covered', frozen: 'Frozen', noir: 'IR fault', blurred: 'Blurred', moved: 'Moved', bright: 'Too bright', colour: 'Colour cast', contrast: 'Contrast', noisy: 'Noisy', bwday: 'B/W by day', suspect: 'Suspect' } }
   };
-  // Chuỗi cho: xuất PDF, nhảy tới camera lỗi, copy IP
   var EXTRA = {
     zh: { pdf: '导出 PDF', pdfBusy: '正在生成 PDF（大图需要几秒）…', pdfFail: '无法生成 PDF：', next: '{0} 台摄像头异常', copyIp: '复制 IP', copied: '已复制' },
     vi: { pdf: 'Xuất PDF', pdfBusy: 'Đang tạo PDF (mặt bằng lớn mất vài giây)…', pdfFail: 'Không tạo được PDF:', next: '{0} camera lỗi', copyIp: 'Copy IP', copied: 'Đã copy' },
     en: { pdf: 'Export PDF', pdfBusy: 'Building the PDF (large plans take a few seconds)…', pdfFail: 'Could not build the PDF:', next: '{0} camera problems', copyIp: 'Copy IP', copied: 'Copied' }
   };
   Object.keys(EXTRA).forEach(function (k) { for (var f in EXTRA[k]) L10N[k][f] = EXTRA[k][f]; });
-  // Chú thích (4 loại) và nhãn thời gian cập nhật
   var EXTRA2 = {
     zh: { lg_normal: '正常',        lg_offline: '离线',        lg_covered: '遮挡',    lg_customs: '海关',     lg_rotated: '角度偏移',   lg_black: '黑屏',          lg_white: '白屏',           updated: '资料更新时间' },
     vi: { lg_normal: 'Bình thường', lg_offline: 'Ngoại tuyến', lg_covered: 'Bị che',  lg_customs: 'Hải quan', lg_rotated: 'Bị xoay lệch', lg_black: 'Màn hình đen', lg_white: 'Màn hình trắng', updated: 'Thời gian cập nhật' },
@@ -35,7 +34,6 @@
   };
   Object.keys(EXTRA2).forEach(function (k) { for (var f in EXTRA2[k]) L10N[k][f] = EXTRA2[k][f]; });
 
-  // Chữ trong file PDF: font DejaVu không có chữ Hán nên tiếng Trung dùng bản tiếng Anh.
   var PDFT = {
     vi: { subject: 'Mặt bằng camera', listTitle: 'Danh sách camera', page: 'Trang', colCode: 'Mã', colName: 'Camera', colStatus: 'Trạng thái', colIp: 'IP', colChannel: 'NVR / kênh', colModel: 'Model', colSerial: 'Serial', colSwitch: 'Switch / port', colRoom: 'Phòng', colAim: 'Hướng / góc', sub: 'Xuất lúc {0} · {1} camera' },
     en: { subject: 'Camera floor plan', listTitle: 'Camera list', page: 'Page', colCode: 'Code', colName: 'Camera', colStatus: 'Status', colIp: 'IP', colChannel: 'NVR / channel', colModel: 'Model', colSerial: 'Serial', colSwitch: 'Switch / port', colRoom: 'Machine room', colAim: 'Direction / angle', sub: 'Exported {0} · {1} cameras' }
@@ -44,17 +42,10 @@
       HEALTH_WARN = { blurred: 1, moved: 1, bright: 1, colour: 1, contrast: 1, noisy: 1, bwday: 1, suspect: 1 };
   var STATUSES = ['online', 'offline', 'warning', 'missing', 'planned'];
 
-  // Camera hải quan (hiện màu vàng): do server xác định theo tên camera trong DB
-  // (tên bắt đầu bằng HQVN) -> cột `customs` trong /markers và /find (xem layoutApi.js).
   function isCustoms(m) {
     return !m.planned && m.customs === true;
   }
-  // Mỗi camera thuộc đúng MỘT nhóm (ưu tiên: offline > bị che > hải quan > bình thường)
-  // => Bình thường + Hải quan + Offline + Bị che = tổng số camera; "camera lỗi" = Offline + Bị che.
-  // Camera bị xoay lệch: trạng thái hình ảnh (camera_health.state) là 'colour' (và 'moved').
-  // Muốn đổi điều kiện chỉ cần sửa danh sách này.
   var ROTATED_HEALTH = { colour: 1, moved: 1 };
-  // Màn hình đen / màn hình trắng: theo camera_health.state. Sửa danh sách nếu DB dùng giá trị khác.
   var BLACK_HEALTH = { black: 1 };
   var WHITE_HEALTH = { white: 1, bright: 1 };
   function category(m) {
@@ -71,27 +62,23 @@
 
   var CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z"/></svg>';
 
-  // Lớp vẽ chồng lên icon: offline = 1 gạch chéo, bị che = 3 gạch chéo, bị xoay lệch = mũi tên xoay bên dưới
-var LG_FX = {
-
-  off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-       '<line x1="16" y1="4" x2="4" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
-       '<line x1="16" y1="4" x2="4" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
+  var LG_FX = {
+    off: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+         '<line x1="16" y1="4" x2="4" y2="16" stroke="#7a0f08" stroke-width="3.4" stroke-linecap="round"/>' +
+         '<line x1="16" y1="4" x2="4" y2="16" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>' +
+         '</svg>',
+    cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+       [0, 3, 6].map(function(offset) {
+         return '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+                '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
+       }).join('') +
        '</svg>',
-  cov: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-     [0, 3, 6].map(function(offset) {
-       return '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
-              '<line x1="' + (10 + offset) + '" y1="4" x2="' + (2 + offset) + '" y2="16" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>';
-     }).join('') +
-     '</svg>',
-  // bị xoay lệch: giữ nguyên icon camera, chỉ thêm mũi tên xoay (cung tròn) bên dưới
-  rot: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
-     '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
-     '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>' +
-     '<polygon points="15.8,14.2 14.6,17.6 12.4,15.4" fill="#fff" stroke="rgba(0,0,0,.45)" stroke-width="1" stroke-linejoin="round"/>' +
-     '</svg>'
-
-};
+    rot: '<svg class="lay-lg-fx" viewBox="0 0 20 20">' +
+       '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.6" stroke-linecap="round"/>' +
+       '<path d="M5.5,15.5 Q10,19.5 14.5,15.5" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>' +
+       '<polygon points="15.8,14.2 14.6,17.6 12.4,15.4" fill="#fff" stroke="rgba(0,0,0,.45)" stroke-width="1" stroke-linejoin="round"/>' +
+       '</svg>'
+  };
 
   var lang = 'zh', built = false, timer = null;
   var plans = [], plan = null, markers = [], byId = {}, selId = null, namesOn = false;
@@ -109,7 +96,6 @@ var LG_FX = {
     });
   }
 
-  // ── dựng khung (một lần) ───────────────────────────────────────────────
   function build() {
     if (built) return; built = true;
     var o = mk('div', 'lay-overlay'); o.id = 'lay-overlay';
@@ -162,14 +148,12 @@ var LG_FX = {
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && el.overlay.classList.contains('active')) close(); });
     window.addEventListener('resize', function () { if (el.overlay.classList.contains('active') && plan) { var f = fitScale(); if (view.s < f) fit(); } });
 
-    // zoom bằng lăn chuột (quanh con trỏ)
     el.vp.addEventListener('wheel', function (e) {
       e.preventDefault();
       var r = el.vp.getBoundingClientRect();
       zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
 
-    // kéo để di chuyển; chạm/bấm không kéo = chọn camera gần nhất
     var drag = null, moved = false;
     el.vp.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
@@ -186,7 +170,6 @@ var LG_FX = {
       var wasMoved = moved; drag = null; el.vp.classList.remove('drag');
       if (wasMoved) return;
       var r = el.vp.getBoundingClientRect();
-      // đổi điểm bấm sang tọa độ mặt bằng, chọn camera gần nhất trong bán kính 18px màn hình
       var mx = (e.clientX - r.left - view.tx) / view.s;
       var my = (e.clientY - r.top - view.ty) / view.s;
       var best = null, bestD = 18 / view.s;
@@ -197,7 +180,6 @@ var LG_FX = {
       select(best ? best.id : null);
     });
 
-    // tìm camera
     var t;
     el.q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(doFind, 250); });
     el.q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(t); doFind(); } });
@@ -205,7 +187,6 @@ var LG_FX = {
     el.vp.addEventListener('pointerdown', function () { el.find.classList.remove('open'); });
   }
 
-  // ── viewport ───────────────────────────────────────────────────────────
   function fitScale() { return Math.min(el.vp.clientWidth / W, el.vp.clientHeight / H) * 0.97; }
   function applyView() {
     el.stage.style.transform = 'translate(' + view.tx + 'px,' + view.ty + 'px) scale(' + view.s + ')';
@@ -227,7 +208,6 @@ var LG_FX = {
     applyView();
   }
 
-  // ── vẽ ghim + vùng nhìn (cùng hình học với camera_map) ─────────────────
   function conePath(m) {
     var cx = m.x * W, cy = m.y * H, r = Math.max(1, m.view_range * W);
     if (m.fov >= 359) return 'M' + (cx - r) + ',' + cy + ' a' + r + ',' + r + ' 0 1,0 ' + (2 * r) + ',0 a' + r + ',' + r + ' 0 1,0 ' + (-2 * r) + ',0Z';
@@ -246,15 +226,14 @@ var LG_FX = {
       byId[m.id] = m;
       m.customs = isCustoms(m);
       m.cat = category(m);
-      var yellow = m.customs && m.cat !== 'offline';              // offline luôn đỏ
-      var covered = m.cat === 'covered';                          // bị che: viền đỏ
-      var rotated = m.cat === 'rotated';                          // bị xoay lệch: nền xanh như camera thường + mũi tên xoay
+      var yellow = m.customs && m.cat !== 'offline';
+      var covered = m.cat === 'covered';
+      var rotated = m.cat === 'rotated';
       var h = healthProblem(m);
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
         (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (rotated ? ' rot' : '') + (m.cat === 'black' ? ' blk' : '') + (m.cat === 'white' ? ' wht' : '') + (m.id === selId ? ' sel' : ''));
       p.dataset.id = m.id;
-      // offline: 1 gạch chéo · bị che: 3 dấu ngã (cùng hình với phần chú thích)
       var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : (rotated ? LG_FX.rot : ''));
       p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
       p.style.left = (m.x * W) + 'px'; p.style.top = (m.y * H) + 'px';
@@ -267,7 +246,6 @@ var LG_FX = {
       el.cones.appendChild(c);
     });
     if (selId && !byId[selId]) select(null);
-    // Số "lỗi" của mặt bằng đang mở = đúng số trên nút "camera lỗi" và chú thích
     if (plan) {
       var problems = markers.filter(isBad).length;
       plan.not_online = problems;
@@ -279,7 +257,6 @@ var LG_FX = {
   }
   function applyNames() { el.stage.classList.toggle('lay-labels', namesOn); el.names.classList.toggle('on', namesOn); }
 
-  // Chú thích xếp 2 hàng theo cột: [Bình thường / Hải quan] [Offline / Bị che] [Bị xoay lệch / Màn hình đen] [Màn hình trắng]
   function renderLegend() {
     var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0, rotated: 0, black: 0, white: 0 };
     markers.forEach(function (m) { if (n[m.cat] !== undefined) n[m.cat]++; });
@@ -300,7 +277,6 @@ var LG_FX = {
     if (el.updated) el.updated.textContent = T().updated + ': ' + (updatedAt || '--');
   }
 
-  // ── thẻ chi tiết ───────────────────────────────────────────────────────
   function select(id) {
     var prev = byId[selId];
     selId = id;
@@ -339,7 +315,6 @@ var LG_FX = {
     }
   }
 
-  // ── tìm camera ─────────────────────────────────────────────────────────
   function doFind() {
     var q = el.q.value.trim();
     if (q.length < 2) { el.find.classList.remove('open'); return Promise.resolve(); }
@@ -367,7 +342,6 @@ var LG_FX = {
     if (plan && plan.id === m.map_id) go(); else openPlan(m.map_id).then(go);
   }
 
-  // ── danh sách mặt bằng (dropdown tự dựng để "⚠" có màu đỏ) ───────────────
   function fillPlanLabel(node, p) {
     node.appendChild(document.createTextNode(p.name + ' (' + p.pins));
     if (p.not_online) {
@@ -396,7 +370,6 @@ var LG_FX = {
     setPlanBtn();
   }
 
-  // ── nạp dữ liệu ────────────────────────────────────────────────────────
   function openPlan(id) {
     var p = plans.filter(function (x) { return x.id === id; })[0];
     if (!p) return Promise.resolve();
@@ -422,7 +395,6 @@ var LG_FX = {
       if (!plans.length) { el.note.textContent = T().noPlans; el.stage.style.display = 'none'; return; }
       el.stage.style.display = '';
       if (first || !plan) return openPlan(plans[0].id);
-      // làm tươi định kỳ: giữ nguyên vị trí xem, chỉ cập nhật trạng thái
       var cur = plans.filter(function (x) { return x.id === plan.id; })[0];
       if (!cur) return openPlan(plans[0].id);
       if (cur.version !== plan.version || cur.image_rev !== plan.image_rev) return openPlan(cur.id);
@@ -431,9 +403,8 @@ var LG_FX = {
     }).catch(function (e) { if (first) el.note.textContent = T().loadFail + ': ' + e.message; });
   }
 
-  // ── camera lỗi: mỗi lần bấm nhảy tới camera lỗi kế tiếp ───────────────
   var badIdx = -1;
-  function isBad(m) { return m.cat === 'offline' || m.cat === 'covered'; }   // camera lỗi = offline + bị che
+  function isBad(m) { return m.cat === 'offline' || m.cat === 'covered'; }
   function updateNext() {
     if (!el.next) return;
     var n = markers.filter(isBad).length;
@@ -446,7 +417,6 @@ var LG_FX = {
     t._el.classList.add('pulse'); setTimeout(function () { t._el && t._el.classList.remove('pulse'); }, 4200);
   }
 
-  // ── copy IP ────────────────────────────────────────────────────────────
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
     var ta = document.createElement('textarea');
@@ -455,7 +425,6 @@ var LG_FX = {
     return Promise.resolve();
   }
 
-  // ── xuất PDF (dựng ngay trên trình duyệt; jsPDF chỉ nạp khi bấm) ──────
   var pdfBusy = false;
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -472,7 +441,7 @@ var LG_FX = {
     var p = plan, now = new Date(), t = T(), pt = PDFT[lang] || PDFT.en;
     var pad = function (n) { return String(n).padStart(2, '0'); };
     var stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
-    var tr = {};   // nhãn trạng thái trong PDF
+    var tr = {};
     STATUSES.forEach(function (s) { tr[s] = (lang === 'zh' ? L10N.en : t)[s]; });
     for (var k in pt) tr[k] = pt[k];
     el.note.textContent = t.pdfBusy;
@@ -501,11 +470,14 @@ var LG_FX = {
     }).then(function () { el.note.textContent = ''; pdfBusy = false; el.pdf.disabled = !plan; });
   }
 
-  // ── API công khai ──────────────────────────────────────────────────────
   function labels() {
     var t = T();
     el.title.textContent = t.title; el.q.placeholder = t.find; el.names.textContent = t.names; el.zfit.title = t.fit; el.pdf.textContent = '⬇ ' + t.pdf; updateNext();
     renderLegend(); renderUpdated(); if (selId && byId[selId]) showCard(byId[selId]);
+  }
+  function flashNote(text, ms) {
+    el.note.textContent = text;
+    setTimeout(function () { if (el.note.textContent === text) el.note.textContent = ''; }, ms || 4000);
   }
   function open(opts) {
     opts = opts || {}; if (opts.lang) lang = opts.lang;
@@ -514,14 +486,27 @@ var LG_FX = {
     plan = null; markers = []; selId = null; el.pdf.disabled = true; el.stage.style.display = 'none'; el.note.textContent = '…';
     reload(true).then(function () {
       el.stage.style.display = plans.length ? '' : 'none';
-      if (opts.q) { el.q.value = opts.q; doFind().then(function (rows) { if (rows && rows[0]) jumpTo(rows[0]); }); }
+      if (opts.locate) {
+        var Lc = opts.locate;
+        el.q.value = Lc.ip || Lc.name || '';
+        var qs = ['ip', 'name', 'nvr', 'ch'].map(function (k) {
+          return k + '=' + encodeURIComponent(Lc[k] || '');
+        }).join('&');
+        getJSON(API + '/locate?' + qs).then(function (j) {
+          var hit = j.rows && j.rows[0];
+          if (hit) jumpTo(hit); else flashNote(T().noRes);
+        }).catch(function () { flashNote(T().loadFail); });
+      } else if (opts.q) {
+        el.q.value = opts.q;
+        doFind().then(function (rows) { if (rows && rows[0]) jumpTo(rows[0]); });
+      }
     });
     clearInterval(timer); timer = setInterval(function () { reload(false); }, REFRESH_MS);
   }
   function close() {
     if (!built) return;
     el.overlay.classList.remove('active'); clearInterval(timer); timer = null;
-    el.img.removeAttribute('src');   // giải phóng ảnh lớn
+    el.img.removeAttribute('src');
   }
   function setLang(l) { lang = l; if (built) labels(); }
 
