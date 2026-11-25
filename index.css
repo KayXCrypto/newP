@@ -493,12 +493,12 @@ body {
 
 /* Ngoại lệ (card camera): màu tím theo thiết kế */
 .circle.exception {
-  background: radial-gradient(circle at 35% 35%, #b58be6, #8a5cc4);
+  background: radial-gradient(circle at 25% 25%, #ffd45a, #e4a923);
 }
 
 /* Bị che (card camera): màu vàng theo thiết kế */
 .circle.covered {
-  background: radial-gradient(circle at 35% 35%, #ffd45a, #e4a923);
+  background: radial-gradient(circle at 25% 25%, #b58be6, #8a5cc4);
 }
 
 .circle.covered.clickable {
@@ -609,8 +609,8 @@ body {
 .card-camera .circle::before {
   content: '';
   flex: 0 0 auto;
-  width: clamp(44px, min(5vw, 8.5vh), 72px);
-  height: clamp(44px, min(5vw, 8.5vh), 72px);
+  width: clamp(30px, min(5vw, 8.5vh), 55px);
+  height: clamp(30px, min(5vw, 8.5vh), 55px);
   border-radius: 50%;
   transition: transform 0.15s;
 }
@@ -621,19 +621,34 @@ body {
 }
 
 .card-camera .circle.covered::before {
-  background: radial-gradient(circle at 35% 35%, #ffd45a, #e4a923);
-  --ring: rgba(255, 212, 90, 0.55);
+  background: radial-gradient(circle at 35% 35%, #e83333, #991111);
+  --ring: rgba(220, 50, 50, 0.55);
 }
 
 .card-camera .circle.exception::before {
-  background: radial-gradient(circle at 35% 35%, #b58be6, #8a5cc4);
-  --ring: rgba(181, 139, 230, 0.55);
+  background: radial-gradient(circle at 35% 35%, #ff9f1a, #cd7f00);
+  --ring: rgba(251, 176, 47, 0.532);
 }
+
 
 .card-camera .circle.normal::before {
   background: radial-gradient(circle at 35% 35%, #33aa33, #116611);
 }
 
+.card-camera .circle.covered:hover {
+  transform: scale(1.07);
+  box-shadow: 0 0 14px #ff9f1a;
+}
+
+.card-camera .circle.covered::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 176, 47, 0.532);
+  animation: pulse-ring 2s infinite;
+}
 /* Vòng sóng lan tỏa (thay cho ::after gốc vốn phủ cả ô chứa) */
 .card-camera .circle::after {
   display: none !important;
