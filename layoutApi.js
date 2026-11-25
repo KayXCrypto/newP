@@ -10,6 +10,10 @@ const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
 // Muốn đổi quy tắc chỉ cần sửa biểu thức này, ví dụ '^[[:space:]]*(HQVN|HQ-)'.
 const CUSTOMS_NAME = '^[[:space:]]*HQVN';
 
+// Camera hải quan còn được nhận theo bảng itsec_camera_health: dòng nào chứa 'HQVN' (ở bất kỳ cột nào) là hải quan.
+// Khi biết đúng tên cột, thay h::text bằng cột đó cho chính xác hơn, ví dụ: h.camera_name ~* '^[[:space:]]*HQVN'
+const CUSTOMS_TAG = 'HQVN';
+
 // Câu SQL lấy "thời gian cập nhật" mặc định (server.js có thể truyền Q.getTimes.camera để dùng chung với dashboard)
 const DEFAULT_UPDATED_SQL =
     "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
@@ -33,8 +37,9 @@ function camerasCte(t) {
                 WHEN c.online IS FALSE THEN 'offline'
                 ELSE 'warning' END`;
     const hCols = t.health
-        ? `COALESCE(h.state,'') AS health, COALESCE(h.reason,'') AS health_reason, h.since AS health_since`
-        : `''::text AS health, ''::text AS health_reason, NULL::timestamptz AS health_since`;
+        ? `COALESCE(h.state,'') AS health, COALESCE(h.reason,'') AS health_reason, h.since AS health_since,
+           COALESCE(h::text ~* '${CUSTOMS_TAG}', FALSE) AS customs`
+        : `''::text AS health, ''::text AS health_reason, NULL::timestamptz AS health_since, FALSE AS customs`;
     const hJoin = t.health
         ? `LEFT JOIN itsec_camera_health h ON host(h.nvr_ip::inet) = host(c.nvr_ip::inet)
                                     AND h.channel_id::text = c.channel_id::text`
@@ -57,7 +62,8 @@ function camerasCte(t) {
                     WHEN BOOL_OR(status='warning') THEN 'warning' ELSE 'offline' END AS status,
                (ARRAY_AGG(health        ORDER BY (health NOT IN ('','ok')) DESC, nvr_ip, channel_id))[1] AS health,
                (ARRAY_AGG(health_reason ORDER BY (health NOT IN ('','ok')) DESC, nvr_ip, channel_id))[1] AS health_reason,
-               (ARRAY_AGG(health_since  ORDER BY (health NOT IN ('','ok')) DESC, nvr_ip, channel_id))[1] AS health_since
+               (ARRAY_AGG(health_since  ORDER BY (health NOT IN ('','ok')) DESC, nvr_ip, channel_id))[1] AS health_since,
+               BOOL_OR(customs) AS customs
         FROM cams_raw GROUP BY camera_key
     )`;
 }
@@ -74,7 +80,8 @@ function markerSelect(t) {
     SELECT k.id, k.map_id, k.camera_key, k.x, k.y, k.direction, k.fov, k.view_range,
            (k.camera_key IS NULL) AS planned, COALESCE(k.label,'') AS label,
            COALESCE(cams.name, byip.name, k.last_name, k.label, '') AS name,
-           (COALESCE(cams.name, byip.name, k.last_name, k.label, '') ~* '${CUSTOMS_NAME}') AS customs,
+           (COALESCE(cams.customs, byip.customs, FALSE)
+            OR COALESCE(cams.name, byip.name, k.last_name, k.label, '') ~* '${CUSTOMS_NAME}') AS customs,
            COALESCE(cams.ip, byip.ip, k.last_ip, '') AS ip,
            COALESCE(cams.serial, byip.serial, '') AS serial,
            COALESCE(cams.model, byip.model, '') AS model,
