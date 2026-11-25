@@ -85,8 +85,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api/layout', layoutRouter(pool, logger));
-
+app.use('/api/layout', layoutRouter(pool, logger, Q.getTimes?.camera));
 app.get('/health', (req, res) => res.json({ ok: true, mqtt: mqttClient.connected, time: nowString() }));
 
 // --- Đăng nhập (dùng cho nút ✏️ sửa ghi chú) ---
