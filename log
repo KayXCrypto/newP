@@ -1,72 +1,44 @@
-Mình sửa 2 điểm: (1) khi số = 0 vẫn giữ nguyên icon, nền và vòng đỏ như chú thích, (2) khi số > 0 thì chữ số chuyển đỏ. Nguyên nhân icon bị xanh là rule `is-zero` cuối đoạn CSS trước đang ép mọi ô về camera xanh trơn.
+Có thể rule `background-size` của bạn bị ghi đè ở các ô offline, đen, trắng, hoặc thứ tự lớp ảnh bị lệch. Cách chắc chắn nhất là **bỏ phụ thuộc vào `background-size`**: thu nhỏ camera ngay trong SVG, nên ô nào cũng nhỏ như nhau.
 
-## Trong `index.css`
+## 1. Trong `index.css`: thay 2 biến camera
 
-**Bước 1:** Xóa khối này (cuối đoạn CSS mình đưa lần trước):
+Trong khối `.card-camera { ... }`, thay `--cam-w` và `--cam-d` bằng (camera được thu về 50% quanh tâm):
 
 ```css
-/* Số = 0: xanh, camera trơn, không vòng đỏ ... */
-.card-camera .circle-wrap .circle.is-zero::before { ... }
+  --cam-w: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(12 12) scale(.5) translate(-12 -12)'><path fill='white' d='M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z'/></g></svg>");
+  --cam-d: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(12 12) scale(.5) translate(-12 -12)'><path fill='%231f2d3d' d='M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z'/></g></svg>");
 ```
 
-**Bước 2:** Dán thêm xuống cuối file:
+## 2. Đổi `background-size` về 100% cho cả 2 lớp
 
 ```css
-/* ===== 5 ô lỗi: icon luôn giống chú thích, kể cả khi = 0 ===== */
-.card-camera .circle.abnormal::before,
-.card-camera .circle.covered::before,
-.card-camera .circle.rotated::before,
-.card-camera .circle.black::before,
-.card-camera .circle.white::before {
-  outline: 2px solid #d93025 !important;
-  outline-offset: 2px;
+.card-camera .circle-wrap .circle::before {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50%;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 100% 100%, 100% 100% !important;
 }
+```
 
-/* Giữ đúng nền + icon khi is-zero (thắng các rule is-zero cũ) */
-.card-camera .circle-wrap .circle.abnormal.is-zero::before {
-  background-image: var(--fx-off), var(--cam-w) !important;
-  background-color: #d93025 !important;
-}
-.card-camera .circle-wrap .circle.covered.is-zero::before {
-  background-image: var(--fx-cov), var(--cam-w) !important;
-  background-color: #1e9e57 !important;
-}
-.card-camera .circle-wrap .circle.rotated.is-zero::before {
-  background-image: var(--fx-rot), var(--cam-w) !important;
-  background-color: #1e9e57 !important;
-}
-.card-camera .circle-wrap .circle.black.is-zero::before {
-  background-image: var(--fx-none), var(--cam-w) !important;
-  background-color: #000 !important;
-}
+Vòng tròn vẫn 34px, vòng đỏ ngoài không đổi, chỉ hình camera nhỏ lại.
+
+## 3. Thêm xuống cuối file (đảm bảo cả `.is-zero` cũng ăn)
+
+```css
+.card-camera .circle-wrap .circle.abnormal::before,
+.card-camera .circle-wrap .circle.black::before,
+.card-camera .circle-wrap .circle.white::before,
+.card-camera .circle-wrap .circle.abnormal.is-zero::before,
+.card-camera .circle-wrap .circle.black.is-zero::before,
 .card-camera .circle-wrap .circle.white.is-zero::before {
-  background-image: var(--fx-none), var(--cam-d) !important;
-  background-color: #fff !important;
+  background-size: 100% 100%, 100% 100% !important;
 }
-
-/* Ngoại lệ / Bình thường: không vòng đỏ */
-.card-camera .circle.exception::before,
-.card-camera .circle.normal::before { outline: none !important; }
-.card-camera .circle-wrap .circle.exception.is-zero::before {
-  background-image: var(--fx-none), var(--cam-w) !important;
-  background-color: #f5c400 !important;
-}
-
-/* Có dữ liệu (> 0): số màu đỏ. = 0: số giữ màu trắng */
-.card-camera .circle.abnormal:not(.is-zero),
-.card-camera .circle.covered:not(.is-zero),
-.card-camera .circle.rotated:not(.is-zero),
-.card-camera .circle.black:not(.is-zero),
-.card-camera .circle.white:not(.is-zero) {
-  color: #ff4d4f !important;
-}
-.card-camera .circle.is-zero { color: #fff; }
 ```
 
-## Kết quả
+## Chỉnh độ lớn camera
 
-- **Số = 0:** icon vẫn đầy đủ (offline đỏ có gạch chéo, bị che xanh có 3 gạch, bị xoay xanh có mũi tên cong, màn hình đen nền đen, màn hình trắng nền trắng), có vòng đỏ ngoài, số trắng, không nháy, không click được.
-- **Số > 0:** giữ nguyên icon và vòng đỏ, số chuyển đỏ, có hiệu ứng nháy và click mở popup.
-- Ngoại lệ (vàng) và Bình thường (xanh) không có vòng đỏ, số luôn trắng, đúng như chú thích. Nếu muốn số Ngoại lệ cũng đỏ khi > 0, thêm `.card-camera .circle.exception:not(.is-zero)` vào danh sách selector màu đỏ.
+Chỉ cần đổi `scale(.5)` trong 2 biến: `.4` nhỏ hơn, `.6` lớn hơn. Hiệu ứng gạch chéo của Offline vẫn giữ kích thước cũ; nếu muốn nó nhỏ theo, bọc `<line>` trong `--fx-off` bằng `<g transform='translate(10 10) scale(.7) translate(-10 -10)'>`.
 
-Nhớ tăng `?v=9` của `index.css` lên `?v=10` và Ctrl+F5 để tránh cache.
+Nhớ tăng `?v=12` lên `?v=13` và Ctrl+F5.
