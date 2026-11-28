@@ -45,9 +45,19 @@
   function isCustoms(m) {
     return !m.planned && m.customs === true;
   }
-  var ROTATED_HEALTH = { colour: 1, moved: 1 };
+
+  // ── Phân nhóm health → nhóm hiển thị. PHẢI khớp với SQL của dashboard (config.json) ──
+  // Dashboard chỉ đếm 'moved' là "Bị xoay lệch" và 'white' là "Màn hình trắng".
+  // Muốn tính thêm lệch màu / quá sáng thì thêm: ROTATED_HEALTH = { moved: 1, colour: 1 }
+  //                                             WHITE_HEALTH   = { white: 1, bright: 1 }
+  // (đồng thời sửa BAD_HEALTH_SQL trong layoutApi.js và SQL của dashboard cho khớp)
+  var ROTATED_HEALTH = { moved: 1 };
   var BLACK_HEALTH = { black: 1 };
-  var WHITE_HEALTH = { white: 1, bright: 1 };
+  var WHITE_HEALTH = { white: 1 };
+
+  // Các nhóm được tính là "camera lỗi" (số ⚠ và nút nhảy tới camera lỗi)
+  var BAD_CATS = { offline: 1, covered: 1, black: 1, white: 1, rotated: 1 };
+
   function category(m) {
     if (m.planned) return 'planned';
     if (m.status === 'offline') return 'offline';
@@ -404,7 +414,8 @@
   }
 
   var badIdx = -1;
-  function isBad(m) { return m.cat === 'offline' || m.cat === 'covered'; }
+  // Camera lỗi = offline, bị che, màn hình đen, màn hình trắng, bị xoay lệch
+  function isBad(m) { return !!BAD_CATS[m.cat]; }
   function updateNext() {
     if (!el.next) return;
     var n = markers.filter(isBad).length;
