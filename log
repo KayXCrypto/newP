@@ -2,11 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import pkg from 'pg';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import mqtt from 'mqtt';
+import layoutRouter from './layoutApi.js';
 import ldap from 'ldapjs';
-
 
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
@@ -14,186 +15,264 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const { Pool } = pkg;
 
+// ===========================================================================
+// 1. LOGGER
+// ===========================================================================
+const ts = () => new Date().toLocaleString();
 const logger = {
-    info: (msg, data = '') => console.log(`[${new Date().toLocaleString()}] ℹ️ INFO: ${msg}`, data),
-    success: (msg, data = '') => console.log(`[${new Date().toLocaleString()}] ✅ SUCCESS: ${msg}`, data),
-    warn: (msg, data = '') => console.warn(`[${new Date().toLocaleString()}] ⚠️ WARN: ${msg}`, data),
-    error: (msg, err = '') => console.error(`[${new Date().toLocaleString()}] ❌ ERROR: ${msg}`, err)
+    info: (msg, data = '') => console.log(`[${ts()}] ℹ️ INFO: ${msg}`, data),
+    success: (msg, data = '') => console.log(`[${ts()}] ✅ SUCCESS: ${msg}`, data),
+    warn: (msg, data = '') => console.warn(`[${ts()}] ⚠️ WARN: ${msg}`, data),
+    error: (msg, err = '') => console.error(`[${ts()}] ❌ ERROR: ${msg}`, err)
 };
 
+// ===========================================================================
+// 2. CONFIG
+// ===========================================================================
 let config;
 try {
-    const configPath = path.join(__dirname, 'config.json');
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    logger.success('Loaded config.json successfully.');
+    config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+    logger.success('Loaded config.json');
 } catch (err) {
     logger.error('Could not read config.json', err.message);
     process.exit(1);
 }
 
+const Q = config.queries || {};
+const TOPIC = config.mqtt?.baseTopic || 'wvn/security';      // phải khớp với index.html
+const MQTT_URL = process.env.MQTT_URL || config.mqtt?.url || 'mqtt://localhost:1883';
+const SYNC_INTERVAL_MS = 30 * 1000;
+
+// Các thẻ trên dashboard lấy trực tiếp từ config.queries.dashboard (thêm thẻ mới chỉ cần sửa config).
+// Mỗi thẻ có thể có nhiều câu SQL, mỗi câu trả về cột "count":
+//   camera: abnormal (offline), normal, covered (bị che), rotated, black, white, exception ...
+const DASHBOARD_KEYS = Object.keys(Q.dashboard || {});
+
+// ---------------------------------------------------------------------------
+// Câu UPDATE ghi chú camera.
+//   - Ghi đè được bằng config.queries.update.exception / .camera_abnormal
+//   - Nếu config không có thì dùng câu mặc định bên dưới (giống bản server cũ)
+//   Tham số luôn theo thứ tự: $1 = remark, $2 = thời điểm cập nhật, $3 = nvr_ip, $4 = nvr_cameraid
+// ---------------------------------------------------------------------------
+const CAMERA_TABLE = 'itsec_camera_offline';
+
+const DEFAULT_EXCEPTION_SQL =
+    `UPDATE ${CAMERA_TABLE} SET excludecamera = $1, excludeupdatedate = $2 WHERE nvr_ip = $3 AND nvr_cameraid = $4`;
+
+// Camera bất thường: excludecreatedate chỉ ghi lần đầu (khi chưa có), các lần sau chỉ sửa remark
+const CAMERA_CHECK_SQL =
+    `SELECT excludecreatedate FROM ${CAMERA_TABLE} WHERE nvr_ip = $1 AND nvr_cameraid = $2`;
+const CAMERA_FIRST_SQL =
+    `UPDATE ${CAMERA_TABLE} SET excludecamera = $1, excludecreatedate = $2 WHERE nvr_ip = $3 AND nvr_cameraid = $4`;
+const CAMERA_NEXT_SQL =
+    `UPDATE ${CAMERA_TABLE} SET excludecamera = $1 WHERE nvr_ip = $2 AND nvr_cameraid = $3`;
+
+// Kiểm tra config lúc khởi động để phát hiện thiếu SQL sớm
+(function validateConfig() {
+    if (!config.db) logger.warn('config.db is missing');
+    if (!DASHBOARD_KEYS.length) logger.warn('config.queries.dashboard is empty');
+
+    const cam = Q.dashboard?.camera || {};
+    ['abnormal', 'normal', 'covered'].forEach(k => {
+        if (!cam[k]) logger.warn(`dashboard.camera.${k} is missing (số trên vòng tròn camera sẽ không có)`);
+    });
+    ['camera', 'camera_offline', 'camera_covered'].forEach(k => {
+        if (!Q.detail?.[k]) logger.warn(`detail.${k} is missing (nút lọc camera sẽ trả bảng trống)`);
+    });
+    if (!Q.update?.exception) logger.info('queries.update.exception not set -> dùng câu UPDATE mặc định');
+})();
+
+// ===========================================================================
+// 3. DATABASE
+// ===========================================================================
 const pool = new Pool({
     ...config.db,
-    options: "-c timezone=Asia/Ho_Chi_Minh"
+    options: '-c timezone=Asia/Ho_Chi_Minh'
 });
+pool.on('error', err => logger.error('Unexpected PG pool error', err.message));
 
-// ================= LDAP AUTH =================
-
+// ---- LDAP ----
 function authenticateLDAP(username, password) {
     return new Promise((resolve) => {
-
-        const client = ldap.createClient({
-            url: 'ldap://10.69.22.12'
-        });
-
+        const client = ldap.createClient({ url: 'ldap://10.69.22.12' });
         const userPrincipalName = `WIH\\${username}`;
 
         client.bind(userPrincipalName, password, (err) => {
-
             if (err) {
                 console.error('LDAP Login Failed:', err.message);
                 client.destroy();
                 return resolve(false);
             }
-
             client.unbind();
             resolve(true);
         });
     });
 }
 
+// ===========================================================================
+// 4. HTTP (static + API)
+// ===========================================================================
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api/layout', layoutRouter(pool, logger, Q.getTimes?.camera));
+app.get('/health', (req, res) => res.json({ ok: true, mqtt: mqttClient.connected, time: nowString() }));
 
-// --- Cáº¤U HÃŒNH MQTT ---
-const mqttClient = mqtt.connect('mqtt://localhost:1883');
-const TOPIC_PREFIX = 'wvn/security';
-
-mqttClient.on('connect', () => {
-    console.log('\n' + '_'.repeat(60));
-    logger.success('Backend connected to MQTT Broker QAS successfully!');
-    console.log('_'.repeat(60));
-
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/detail`);
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/subdetail`);
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/all_detail`);
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/gettime`);
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/update_exception`);
-    mqttClient.subscribe(`${TOPIC_PREFIX}/request/update_camera_abnormal`);
-
-    logger.info(`Subscribed to MQTT topics under: ${TOPIC_PREFIX}/request/#`);
-
-    syncDashboardData();
-    syncContacts();
-    syncGettime();
-});
-
-// --- 1. HÀM PUBLISH DỮ LIỆU TỔNG QUÁT (DASHBOARD) ---
-async function syncDashboardData() {
-    logger.info('Starting scheduled Dashboard data synchronization...');
-    // Đã xóa 'cameraexception' khỏi mảng keys để tránh chạy thừa vòng lặp
-    const keys = ['face', 'nvr', 'hr_face', 'hr_door', 'accesscontrol', 'perm', 'camera', 'magnetdoor', 'visitor'];
-    let dashboardData = {};
-
-    for (const key of keys) {
-        if (key === 'cameraexception' || key === 'cameraException') continue;
-        const queries = config?.queries?.dashboard?.[key];
-        if (!queries) continue;
-
-        try {
-            // Nếu là camera và có cấu hình query exception riêng trong config.json
-            if (key === 'camera' && config?.queries?.dashboard?.cameraexception) {
-                const qException = config.queries.dashboard.cameraexception;
-                const [resAbnormal, resNormal, resException] = await Promise.all([
-                    pool.query(queries.abnormal),
-                    pool.query(queries.normal),
-                    pool.query(qException.abnormal) // Giả định câu lệnh đếm exception của bạn nằm ở đây
-                ]);
-
-                dashboardData[key] = {
-                    abnormal: parseInt(resAbnormal.rows[0]?.count || 0),
-                    normal: parseInt(resNormal.rows[0]?.count || 0),
-                    exception: parseInt(resException.rows[0]?.count || 0) // Gộp chung vào cấu trúc của camera
-                };
-            } else {
-                // Các thiết bị khác giữ nguyên logic cũ
-                const [resAbnormal, resNormal] = await Promise.all([
-                    pool.query(queries.abnormal),
-                    pool.query(queries.normal)
-                ]);
-
-                dashboardData[key] = {
-                    abnormal: parseInt(resAbnormal.rows[0]?.count || 0),
-                    normal: parseInt(resNormal.rows[0]?.count || 0)
-                };
-            }
-        } catch (err) {
-            logger.error(`Dashboard database query failed for key [${key}]:`, err.message);
-        }
-    }
-
-    // Định dạng thời gian: YYYY/MM/DD HH:mm:ss
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    dashboardData.updateTime = `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-
-    // Publish dữ liệu tổng quan lên MQTT kèm thuộc tính retain
-    mqttClient.publish(`${TOPIC_PREFIX}/dashboard`, JSON.stringify(dashboardData), { retain: true });
-    logger.success(`Published global Dashboard updates. Time Stamp: ${dashboardData.updateTime}`);
+// --- Hỗ trợ so sánh mật khẩu (hiện chưa dùng vì đăng nhập qua LDAP) ---
+function safeEqual(a, b) {
+    const ha = crypto.createHash('sha256').update(String(a)).digest();
+    const hb = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(ha, hb);
 }
 
+// ===========================================================================
+// 5. ĐẨY DỮ LIỆU ĐỊNH KỲ LÊN MQTT
+// ===========================================================================
+const pad = n => String(n).padStart(2, '0');
+function nowString() {
+    const d = new Date();
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ` +
+        `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Gói gửi đi: { camera: { abnormal, normal, covered, ... }, nvr: { abnormal, normal }, ..., updateTime }
+let syncingDashboard = false;
+async function syncDashboardData() {
+    if (syncingDashboard) return;        // tránh chạy chồng nếu DB chậm
+    syncingDashboard = true;
+    try {
+        const dashboardData = {};
+
+        for (const key of DASHBOARD_KEYS) {
+            const queries = Q.dashboard[key];
+            try {
+                const fields = Object.keys(queries);
+                const results = await Promise.all(fields.map(f => pool.query(queries[f])));
+
+                dashboardData[key] = {};
+                fields.forEach((f, i) => {
+                    dashboardData[key][f] = parseInt(results[i].rows[0]?.count || 0, 10);
+                });
+            } catch (err) {
+                logger.error(`Dashboard query failed for [${key}]`, err.message);
+            }
+        }
+
+        dashboardData.updateTime = nowString();
+        mqttClient.publish(`${TOPIC}/dashboard`, JSON.stringify(dashboardData), { retain: true });
+    } finally {
+        syncingDashboard = false;
+    }
+}
 
 async function syncContacts() {
+    if (!Q.it_contact) return;
     try {
-        const r = await pool.query(config.queries.it_contact);
-        mqttClient.publish(`${TOPIC_PREFIX}/contacts`, JSON.stringify(r.rows), { retain: true });
-        logger.success(`Published Contacts database list. Total items: ${r.rows.length}`);
+        const r = await pool.query(Q.it_contact);
+        mqttClient.publish(`${TOPIC}/contacts`, JSON.stringify(r.rows), { retain: true });
     } catch (err) {
-        logger.error('IT Contacts database query failed:', err.message);
+        logger.error('Contact query failed', err.message);
     }
 }
 
-// --- 3. HÃ€M Láº¤Y THá»œI GIAN Cáº¬P NHáº¬T Tá»ªNG Há»† THá»NG ---
+// config.queries.getTimes = { camera: "select ... as updatedate ...", ... }
+// Gửi { camera: "2026-11-16 09:00:00", ... } để index.html gán vào <key>-time-value
 async function syncGettime() {
-    const keys = ['face', 'nvr', 'hr_face', 'hr_door', 'accesscontrol', 'perm', 'camera', 'magnetdoor', 'visitor', 'cameraexception'];
-    let timesData = {};
-
-    for (const key of keys) {
-        const sql = config?.queries?.getTimes?.[key];
-        if (!sql || sql.trim() === "") continue;
-
+    const out = {};
+    for (const [key, sql] of Object.entries(Q.getTimes || {})) {
+        if (!sql || String(sql).trim() === '') continue;
         try {
             const r = await pool.query(sql);
-            timesData[key] = r.rows[0]?.updatedate || 'N/A';
+            out[key] = r.rows[0]?.updatedate || 'N/A';
         } catch (err) {
-            logger.error(`Get Time query failed for [${key}]:`, err.message);
+            logger.error(`Get time query failed for [${key}]`, err.message);
         }
     }
-
-    if (Object.keys(timesData).length > 0) {
-        mqttClient.publish(`${TOPIC_PREFIX}/gettimes`, JSON.stringify(timesData), { retain: true });
-        logger.success(`Published system sync times:`, JSON.stringify(timesData));
+    if (Object.keys(out).length) {
+        mqttClient.publish(`${TOPIC}/gettimes`, JSON.stringify(out), { retain: true });
     }
 }
 
-setInterval(() => {
-    console.log('\n' + 'â•'.repeat(40) + ' CRON JOB RUNNING ' + 'â•'.repeat(40));
-    syncDashboardData();
-    syncContacts();
-    syncGettime();
-    console.log('â•'.repeat(98) + '\n');
-}, 30000);
+const syncAll = () => Promise.allSettled([syncDashboardData(), syncContacts(), syncGettime()]);
+
+// ===========================================================================
+// 6. MQTT REQUEST / RESPONSE
+// ===========================================================================
+const mqttClient = mqtt.connect(MQTT_URL);
+const REQUEST_ACTIONS = ['detail', 'subdetail', 'all_detail', 'gettime', 'update_camera_abnormal', 'update_exception'];
+
+mqttClient.on('connect', () => {
+    logger.success(`Backend connected to MQTT Broker (${MQTT_URL}) | base topic: ${TOPIC}`);
+    REQUEST_ACTIONS.forEach(a => mqttClient.subscribe(`${TOPIC}/request/${a}`));
+    syncAll();
+});
+mqttClient.on('error', err => logger.error('MQTT error', err.message));
+mqttClient.on('reconnect', () => logger.warn('MQTT reconnecting...'));
+
+setInterval(syncAll, SYNC_INTERVAL_MS);
+
+// SQL chỉ lấy từ config theo `type` (whitelist) -> client không thể chèn SQL
+function resolveReadQuery(action, type, id) {
+    switch (action) {
+        case 'detail':     // cấp 1: danh sách lỗi. camera / camera_offline / camera_covered ... đều tra ở đây
+            return { sql: Q.detail?.[type], params: [] };
+        case 'subdetail':  // cấp 2: chi tiết từng người / thiết bị
+            return { sql: Q.sub_detail?.[type], params: [id] };
+        case 'all_detail': // nút View All
+            return { sql: Q.allQueries?.[type], params: [] };
+        default:
+            return { sql: null, params: [] };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ghi chú / lý do loại trừ camera
+//   update_exception       : cập nhật excludecamera + excludeupdatedate
+//   update_camera_abnormal : cập nhật excludecamera; excludecreatedate chỉ ghi lần đầu
+// ---------------------------------------------------------------------------
+async function handleUpdate(action, p) {
+    const { nvr_ip, nvr_cameraid, remark } = p;
+    if (!nvr_ip || nvr_cameraid === undefined || nvr_cameraid === null || nvr_cameraid === '') {
+        return { success: false, error: 'Missing nvr_ip or nvr_cameraid' };
+    }
+
+    const remarkVal = (typeof remark === 'string' && remark.trim() !== '') ? remark.trim() : null;
+    const camId = String(nvr_cameraid);
+    const now = new Date();
+
+    if (action === 'update_exception') {
+        const sql = Q.update?.exception || DEFAULT_EXCEPTION_SQL;
+        const r = await pool.query(sql, [remarkVal, now, nvr_ip, camId]);
+        return { success: true, rowCount: r.rowCount };
+    }
+
+    if (action === 'update_camera_abnormal') {
+        // Nếu config có câu riêng thì dùng đúng câu đó (cùng thứ tự tham số)
+        if (Q.update?.camera_abnormal) {
+            const r = await pool.query(Q.update.camera_abnormal, [remarkVal, now, nvr_ip, camId]);
+            return { success: true, rowCount: r.rowCount };
+        }
+
+        // Mặc định: lần đầu ghi remark thì set cả excludecreatedate, các lần sau chỉ sửa remark
+        const check = await pool.query(CAMERA_CHECK_SQL, [nvr_ip, camId]);
+        const hasCreate = !!check.rows[0]?.excludecreatedate;
+        const r = hasCreate
+            ? await pool.query(CAMERA_NEXT_SQL, [remarkVal, nvr_ip, camId])
+            : await pool.query(CAMERA_FIRST_SQL, [remarkVal, now, nvr_ip, camId]);
+        return { success: true, rowCount: r.rowCount };
+    }
+
+    return { success: false, error: `${action} is not supported` };
+}
 
 mqttClient.on('message', async (topic, message) => {
-    if (topic === `${TOPIC_PREFIX}/request/gettime`) {
-        logger.info('ðŸ“¥ [MQTT Request] Received on-demand update-time sync request from client');
+    const prefix = `${TOPIC}/request/`;
+    if (!topic.startsWith(prefix)) return;
+    const action = topic.slice(prefix.length);
+
+    // Client yêu cầu làm mới thời gian cập nhật (không có requestId)
+    if (action === 'gettime') {
         await syncGettime();
         return;
     }
@@ -201,182 +280,105 @@ mqttClient.on('message', async (topic, message) => {
     let payload;
     try {
         payload = JSON.parse(message.toString());
-    } catch (e) {
-        logger.warn(` Failed to parse incoming JSON package on topic: ${topic}`);
+    } catch {
+        logger.warn(`Failed to parse JSON on topic: ${topic}`);
         return;
     }
 
     const { type, id, requestId } = payload;
-    if (!requestId) {
-        logger.warn(` Request on [${topic}] rejected: Missing required 'requestId' attribute.`);
-        return;
-    }
-
-    logger.info(` [MQTT Request] Topic: "${topic}" | Type: "${type || 'N/A'}" | ID: "${id || 'N/A'}"`);
-
-    const responseTopic = `${TOPIC_PREFIX}/response/${requestId}`;
-    let resultRows = [];
+    if (!requestId) return;
+    const responseTopic = `${TOPIC}/response/${requestId}`;
 
     try {
-        let sql = '';
-        let params = [];
-
-        if (topic === `${TOPIC_PREFIX}/request/detail`) {
-            sql = config.queries.detail[type];
-        }
-        else if (topic === `${TOPIC_PREFIX}/request/subdetail`) {
-            sql = config.queries.sub_detail?.[type];
-            params = [id];
-        }
-        else if (topic === `${TOPIC_PREFIX}/request/all_detail`) {
-            sql = config.queries.allQueries?.[type];
-        }
-        // --- CẬP NHẬT REMARK + EXCLUDEUPDATEDATE CHO CAMERA EXCEPTION ---
-        else if (topic === `${TOPIC_PREFIX}/request/update_exception`) {
-            const { nvr_ip, nvr_cameraid, remark } = payload;
-            if (!nvr_ip || !nvr_cameraid) {
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: false, error: 'Missing nvr_ip or nvr_cameraid' }));
-                return;
-            }
+        // --- Ghi chú camera ---
+        if (action === 'update_camera_abnormal' || action === 'update_exception') {
+            let result;
             try {
-                const remarkVal = (remark && remark.trim() !== '') ? remark.trim() : null;
-                const now = new Date();
-                const updateSql = `UPDATE itsec_camera_offline SET excludecamera = $1, excludeupdatedate = $2 WHERE nvr_ip = $3 AND nvr_cameraid = $4`;
-                const updateRes = await pool.query(updateSql, [remarkVal, now, nvr_ip, nvr_cameraid]);
-                logger.success(`Updated remark+excludeupdatedate for camera [${nvr_cameraid}] on NVR [${nvr_ip}]. Rows: ${updateRes.rowCount}`);
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: true, rowCount: updateRes.rowCount }));
-                // Đồng bộ ngay dữ liệu
+                result = await handleUpdate(action, payload);
+            } catch (err) {
+                logger.error(`${action} failed`, err.message);
+                result = { success: false, error: err.message };
+            }
+
+            mqttClient.publish(responseTopic, JSON.stringify({ requestId, ...result }));
+            logger.info(`${action} ${payload.nvr_ip}/${payload.nvr_cameraid} -> ${result.success ? `OK (rows: ${result.rowCount})` : result.error}`);
+
+            // Cập nhật ngay số liệu dashboard + thời gian để người dùng thấy kết quả mới
+            if (result.success) {
                 await syncDashboardData();
                 await syncGettime();
-            } catch (err) {
-                logger.error('Update remark (exception) failed:', err.message);
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: false, error: err.message }));
-            }
-            return;
-        }
-        // --- CẬP NHẬT REMARK + EXCLUDECREATEDATE CHO CAMERA ABNORMAL ---
-        else if (topic === `${TOPIC_PREFIX}/request/update_camera_abnormal`) {
-            const { nvr_ip, nvr_cameraid, remark } = payload;
-            if (!nvr_ip || !nvr_cameraid) {
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: false, error: 'Missing nvr_ip or nvr_cameraid' }));
-                return;
-            }
-            try {
-                const remarkVal = (remark && remark.trim() !== '') ? remark.trim() : null;
-                const now = new Date();
-                // excludecreatedate chỉ ghi lần đầu (khi chưa có giá trị), sau đó không ghi đè
-                const checkSql = `SELECT excludecreatedate FROM itsec_camera_offline WHERE nvr_ip = $1 AND nvr_cameraid = $2`;
-                const checkRes = await pool.query(checkSql, [nvr_ip, nvr_cameraid]);
-                const existingCreate = checkRes.rows[0]?.excludecreatedate;
-
-                let updateSql, updateParams;
-                if (!existingCreate) {
-                    // Lần đầu ghi remark → set cả excludecreatedate
-                    updateSql = `UPDATE itsec_camera_offline SET excludecamera = $1, excludecreatedate = $2 WHERE nvr_ip = $3 AND nvr_cameraid = $4`;
-                    updateParams = [remarkVal, now, nvr_ip, nvr_cameraid];
-                } else {
-                    // Đã có excludecreatedate → chỉ cập nhật remark
-                    updateSql = `UPDATE itsec_camera_offline SET excludecamera = $1 WHERE nvr_ip = $2 AND nvr_cameraid = $3`;
-                    updateParams = [remarkVal, nvr_ip, nvr_cameraid];
-                }
-
-                const updateRes = await pool.query(updateSql, updateParams);
-                logger.success(`Updated excludecamera (abnormal) for camera [${nvr_cameraid}] on NVR [${nvr_ip}]. Rows: ${updateRes.rowCount}`);
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: true, rowCount: updateRes.rowCount }));
-                
-                // Đồng bộ ngay dữ liệu
-                await syncDashboardData();
-                await syncGettime();
-            } catch (err) {
-                logger.error('Update excludecamera (abnormal) failed:', err.message);
-                mqttClient.publish(responseTopic, JSON.stringify({ requestId, success: false, error: err.message }));
             }
             return;
         }
 
-        if (sql) {
+        // --- Đọc dữ liệu chi tiết ---
+        const { sql, params } = resolveReadQuery(action, type, id);
+        logger.info(`REQUEST => action=${action}, type=${type}`);
+
+        if (!sql) {
+            logger.warn(`No query configured for ${action} [${type}]`);
+            mqttClient.publish(responseTopic, JSON.stringify({
+                requestId, rows: [], success: false, error: `Missing SQL config for ${type}`
+            }));
+            return;
+        }
+
+        let rows = [];
+        try {
             const res = await pool.query(sql, params);
-
-            // Kiểm tra nếu res và res.rows thực sự tồn tại và là một mảng dữ liệu
-            if (res && Array.isArray(res.rows)) {
-                resultRows = res.rows.map(o => Object.values(o));
-            } else {
-                logger.warn(`⚠️ Database trả về dữ liệu trống hoặc không đúng định dạng cho loại: [${type}]`);
-                resultRows = [];
-            }
+            rows = Array.isArray(res?.rows) ? res.rows.map(o => Object.values(o)) : [];  // Object -> Array cho renderTable
+            logger.info(`[${type}] returned ${rows.length} rows`);
+        } catch (sqlErr) {
+            logger.error(`SQL execution error [${type}]`, sqlErr.message);
+            mqttClient.publish(responseTopic, JSON.stringify({
+                requestId, rows: [], success: false, error: sqlErr.message
+            }));
+            return;
         }
 
-        mqttClient.publish(responseTopic, JSON.stringify({
-            requestId,
-            rows: resultRows
-        }));
-
-        logger.success(` [MQTT Response] Sent data back to client via [${responseTopic}] - Total rows: ${resultRows.length}`);
-
+        mqttClient.publish(responseTopic, JSON.stringify({ requestId, rows }));
+        logger.info(`Replied ${action} [${type}] - Rows: ${rows.length}`);
     } catch (err) {
-        logger.error(` DB Execution failure handling topic [${topic}]:`, err.message);
-        mqttClient.publish(responseTopic, JSON.stringify({ requestId, rows: [], error: err.message }));
+        logger.error(`Error handling ${action} [${type}]`, err.message);
+        // Luôn trả lời để giao diện không bị treo
+        mqttClient.publish(responseTopic, JSON.stringify({ requestId, rows: [], success: false, error: err.message }));
     }
 });
 
 // =================================================
 // LDAP LOGIN API
 // =================================================
-
 app.post('/api/login', async (req, res) => {
     try {
-
         const { username, password } = req.body;
 
         if (!username || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing username or password'
-            });
+            return res.status(400).json({ success: false, message: 'Missing username or password' });
         }
 
         // Bước 1: Kiểm tra AD
-        const isAuthenticated = await authenticateLDAP(
-            username,
-            password
-        );
-
+        const isAuthenticated = await authenticateLDAP(username, password);
         if (!isAuthenticated) {
-            return res.status(401).json({
-                success: false,
-                message: 'Sai tài khoản hoặc mật khẩu Domain'
-            });
+            return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu Domain' });
         }
 
         // Bước 2: Kiểm tra user trong DB
         const userResult = await pool.query(
-            `
-            SELECT *
-            FROM itsec_itcontactlist
-            WHERE LOWER(empid) = LOWER($1)
-            AND emptype in ('admin','user_admin')
-            `,
+            `SELECT *
+             FROM itsec_itcontactlist
+             WHERE LOWER(empid) = LOWER($1)
+               AND emptype in ('admin','user_admin')`,
             [username]
         );
-        console.log(userResult.rows[0]);
         if (userResult.rows.length === 0) {
-            return res.status(403).json({
-                success: false,
-                message: 'Tài khoản chưa được cấp quyền sử dụng hệ thống'
-            });
+            return res.status(403).json({ success: false, message: 'Tài khoản chưa được cấp quyền sử dụng hệ thống' });
         }
 
         const user = userResult.rows[0];
 
         // Bước 3: So sánh username
-        if (
-            user.empid.trim().toLowerCase() !==
-            username.trim().toLowerCase()
-        ) {
-            return res.status(403).json({
-                success: false,
-                message: 'Thông tin tài khoản không khớp'
-            });
+        if (user.empid.trim().toLowerCase() !== username.trim().toLowerCase()) {
+            return res.status(403).json({ success: false, message: 'Thông tin tài khoản không khớp' });
         }
 
         return res.json({
@@ -389,25 +391,32 @@ app.post('/api/login', async (req, res) => {
                 role: user.role
             }
         });
-
     } catch (err) {
-
         console.error(err);
-
-        return res.status(500).json({
-            success: false,
-            message: err.message
-        });
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
+// ===========================================================================
+// 7. KHỞI CHẠY / TẮT
+// ===========================================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log('\n' + '='.repeat(50));
     logger.success(`🚀 SERVER RUNNING ON http://localhost:${PORT}`);
     logger.info(`Múi giờ hệ thống: ${process.env.TZ}`);
     console.log('='.repeat(50) + '\n');
 });
+server.on('error', err => { logger.error('HTTP server error', err.message); process.exit(1); });
 
+process.on('unhandledRejection', err => logger.error('Unhandled rejection', err?.message || err));
 
-
+async function shutdown() {
+    logger.info('Shutting down...');
+    server.close();
+    mqttClient.end(true);
+    await pool.end().catch(() => { });
+    process.exit(0);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
