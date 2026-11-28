@@ -10,6 +10,11 @@ const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
 const CUSTOMS_NAME = '^[[:space:]]*HQVN';
 const CUSTOMS_TAG = 'HQVN';
 
+// Các trạng thái health bị tính là "lỗi" (phải khớp với layout.js: covered, black, white, rotated)
+// Muốn tính thêm lệch màu / quá sáng: thêm 'colour', 'bright' vào danh sách này
+// và vào ROTATED_HEALTH / WHITE_HEALTH trong layout.js.
+const BAD_HEALTH_SQL = "('covered','black','white','moved')";
+
 const DEFAULT_UPDATED_SQL =
     "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
 
@@ -130,7 +135,7 @@ export default function layoutRouter(pool, logger = console, updatedSql = DEFAUL
                    COUNT(k.id) AS pins,
                    COUNT(k.id) FILTER (WHERE k.camera_key IS NOT NULL
                                          AND (COALESCE(cams.status,'missing') = 'offline'
-                                              OR COALESCE(cams.health,'') = 'covered')) AS not_online
+                                              OR COALESCE(cams.health,'') IN ${BAD_HEALTH_SQL})) AS not_online
             FROM itsec_camera_map m
             LEFT JOIN itsec_camera_map_marker k ON k.map_id = m.id
             LEFT JOIN cams ON cams.camera_key = k.camera_key
