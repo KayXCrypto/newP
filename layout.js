@@ -47,13 +47,12 @@
   }
 
   // ── Phân nhóm health → nhóm hiển thị. PHẢI khớp với SQL của dashboard (config.json) ──
-  // Dashboard chỉ đếm 'moved' là "Bị xoay lệch" và 'white' là "Màn hình trắng".
-  // Muốn tính thêm lệch màu / quá sáng thì thêm: ROTATED_HEALTH = { moved: 1, colour: 1 }
-  //                                             WHITE_HEALTH   = { white: 1, bright: 1 }
-  // (đồng thời sửa BAD_HEALTH_SQL trong layoutApi.js và SQL của dashboard cho khớp)
-  var ROTATED_HEALTH = { moved: 1 };
+  // "Bị xoay lệch" = moved + colour (lệch màu); "Màn hình trắng" = white + bright (quá sáng).
+  // Phải khớp với BAD_HEALTH_SQL trong layoutApi.js và SQL camera_rotated / camera_white
+  // của dashboard (config.json).
+  var ROTATED_HEALTH = { moved: 1, colour: 1 };
   var BLACK_HEALTH = { black: 1 };
-  var WHITE_HEALTH = { white: 1 };
+  var WHITE_HEALTH = { white: 1, bright: 1 };
 
   // Các nhóm được tính là "camera lỗi" (số ⚠ và nút nhảy tới camera lỗi)
   var BAD_CATS = { offline: 1, covered: 1, black: 1, white: 1, rotated: 1 };
