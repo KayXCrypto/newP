@@ -10,10 +10,9 @@ const CAMERA_KEY = `CASE WHEN COALESCE(c.serial,'') <> '' THEN c.serial
 const CUSTOMS_NAME = '^[[:space:]]*HQVN';
 const CUSTOMS_TAG = 'HQVN';
 
-// Các trạng thái health bị tính là "lỗi" (phải khớp với layout.js: covered, black, white, rotated)
-// Muốn tính thêm lệch màu / quá sáng: thêm 'colour', 'bright' vào danh sách này
-// và vào ROTATED_HEALTH / WHITE_HEALTH trong layout.js.
-const BAD_HEALTH_SQL = "('covered','black','white','moved')";
+// Các trạng thái health bị tính là "lỗi" (phải khớp với layout.js):
+// covered, black, white + bright (quá sáng), moved + colour (lệch màu)
+const BAD_HEALTH_SQL = "('covered','black','white','bright','moved','colour')";
 
 const DEFAULT_UPDATED_SQL =
     "select TO_CHAR(max(updatedate), 'YYYY-MM-DD HH24:MI:SS') as updatedate from itsec_camera_offline";
