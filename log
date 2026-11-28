@@ -1,32 +1,29 @@
-Mình đã sửa `layout.js` và bạn cần thêm một đoạn CSS vào `layout.css` để icon camera chuyển vàng.
-
-## 1. `layout.js` (đã sửa)
-
-Camera hải quan được chia hai trường hợp:
-- **Bình thường:** ghim và vùng nhìn màu vàng, như cũ.
-- **Có lỗi** (offline, bị che, đen, trắng, xoay lệch, lệch màu, quá sáng): ghim giữ nền và viền theo đúng loại lỗi, chỉ icon camera bên trong chuyển vàng. Ghim này được gắn thêm class `cust-bad`.
-
-Trước đây camera hải quan bị che, đen hoặc trắng bị nền vàng ghi đè, nên không phân biệt được loại lỗi. Giờ nền được giữ nguyên.
-
-## 2. `layout.css`: thêm xuống cuối file
+Phần này chỉ cần thêm CSS vào `layout.css`, không phải sửa `layout.js`. Bạn dán xuống cuối file:
 
 ```css
-/* Camera hải quan có lỗi: nền theo loại lỗi, chỉ icon camera màu vàng */
-.lay-pin.cust-bad svg:not(.lay-pin-fx) { fill: #f5c400; }
+/* Bảng chú thích: 5 loại lỗi có icon camera màu vàng (giống camera hải quan có lỗi) */
+.lay-lg-ico.off svg:not(.lay-lg-fx),
+.lay-lg-ico.cov svg:not(.lay-lg-fx),
+.lay-lg-ico.rot svg:not(.lay-lg-fx),
+.lay-lg-ico.blk svg:not(.lay-lg-fx),
+.lay-lg-ico.wht svg:not(.lay-lg-fx) {
+  fill: #f5c400;
+}
 
-/* Nền trắng (màn hình trắng): icon vàng cần viền tối để nhìn rõ */
-.lay-pin.cust-bad.wht svg:not(.lay-pin-fx) {
+/* Nền trắng: icon vàng cần viền tối để nhìn rõ */
+.lay-lg-ico.wht svg:not(.lay-lg-fx) {
   fill: #f5c400;
   stroke: #7a5a00;
-  stroke-width: 1.4;
+  stroke-width: 1.6;
   paint-order: stroke;
 }
 ```
 
-Selector `:not(.lay-pin-fx)` giữ nguyên các nét gạch chéo (offline), 3 gạch (bị che) và mũi tên (xoay lệch) màu trắng, chỉ đổi riêng hình camera.
+Kết quả:
+- Ngoại tuyến, bị che, màn hình đen, bị xoay lệch và màn hình trắng giữ nguyên nền và vòng đỏ ngoài, chỉ hình camera bên trong chuyển sang vàng.
+- Các nét gạch chéo, 3 gạch và mũi tên cong vẫn màu trắng nhờ selector `:not(.lay-lg-fx)`.
+- "Bình thường" và "Hải quan" không đổi.
 
-## Lưu ý
+Một điểm cần cân nhắc: sau khi đổi, icon lỗi trong chú thích có camera vàng, nhưng camera lỗi **không phải hải quan** trên bản đồ vẫn là camera trắng. Hai bên sẽ không còn giống hệt nhau. Nếu muốn chú thích chính xác cho cả hai trường hợp, mình có thể giữ nguyên 5 icon cũ và thêm một mục "Hải quan lỗi" (nền đỏ, camera vàng). Bạn cho mình biết nếu cần.
 
-- Icon trong bảng chú thích không đổi, vì chú thích chỉ mô tả loại lỗi. Nếu muốn thêm một mục chú thích riêng cho "Hải quan có lỗi", mình có thể thêm.
-- Vùng nhìn (hình quạt) của camera hải quan có lỗi giờ dùng màu theo trạng thái, không còn vàng.
-- Nhớ tăng `?v=` của `layout.js` và `layout.css` trong `index.html`, rồi Ctrl+F5.
+Nhớ tăng `?v=` của `layout.css` trong `index.html` và Ctrl+F5.
