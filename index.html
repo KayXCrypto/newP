@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>WVN安防设备异常状态监控看板</title>
+    <title>WVN????????????</title>
     <link rel="icon" type="image/png" href="./images/logo.png">
     <link rel="stylesheet" href="./style/index.css?v=9">
     <link rel="stylesheet" href="./style/layout.css?v=7">
@@ -36,10 +36,10 @@
                         fill="currentColor"></path>
                 </svg>
             </div>
-            <div class="dashboard-title" id="title">WVN安防设备异常状态监控看板</div>
+            <div class="dashboard-title" id="title">WVN????????????</div>
 
             <div class="contact-title" id="contact-title-text" onclick="openContactsModal()"
-                style="cursor: pointer; text-decoration: underline;">IT人员联系方式</div>
+                style="cursor: pointer; text-decoration: underline;">IT??????</div>
 
             <div class="header-right-container">
                 <div id="current-time" class="time-display">yyyy/mm/dd hh:MM:ss</div>
@@ -55,195 +55,195 @@
         </div>
 
         <div class="grid-top">
-            <!-- Card camera: Offline | Bị che | Xoay lệch | Đen | Trắng | Ngoại lệ | Bình thường.
-                 5 ô lỗi đều mở cùng popup camera, nút lọc tương ứng được chọn sẵn -->
+            <!-- Card camera: Offline | B? che | Xoay l?ch | Ðen | Tr?ng | Ngo?i l? | Bình thu?ng.
+                 5 ô l?i d?u m? cùng popup camera, nút l?c tuong ?ng du?c ch?n s?n -->
             <div class="card card-camera">
-                <div class="card-title" id="camera-title-text">摄像头离线数量</div>
+                <div class="card-title" id="camera-title-text">???????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="camera-abnormal"
                             onclick="openModal('camera', 'offline')">0</div>
-                        <div class="circle-label" id="camera-offline-label">离线数(台)</div>
+                        <div class="circle-label" id="camera-offline-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle covered clickable" id="camera-covered"
                             onclick="openModal('camera', 'covered')">0</div>
-                        <div class="circle-label" id="camera-covered-label">遮挡数(台)</div>
+                        <div class="circle-label" id="camera-covered-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle rotated clickable is-zero" id="camera-rotated"
                             onclick="openModal('camera', 'rotated')">0</div>
-                        <div class="circle-label" id="camera-rotated-label">偏移数(台)</div>
+                        <div class="circle-label" id="camera-rotated-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle black clickable is-zero" id="camera-black"
                             onclick="openModal('camera', 'black')">0</div>
-                        <div class="circle-label" id="camera-black-label">黑屏数(台)</div>
+                        <div class="circle-label" id="camera-black-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle white clickable is-zero" id="camera-white"
                             onclick="openModal('camera', 'white')">0</div>
-                        <div class="circle-label" id="camera-white-label">白屏数(台)</div>
+                        <div class="circle-label" id="camera-white-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle exception clickable" id="camera-exception"
                             onclick="openModal('camera_exception')">0</div>
-                        <div class="circle-label" id="camera-exception-label">例外数(台)</div>
+                        <div class="circle-label" id="camera-exception-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="camera-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
 
                 <div class="card-time-footer">
-                    <span id="camera-time-title-text">资料更新时间</span>:
+                    <span id="camera-time-title-text">??????</span>:
                     <span id="camera-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='nvr-title-text'>NVR主机离线数量</div>
+                <div class="card-title" id='nvr-title-text'>NVR??????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="nvr-abnormal" onclick="openModal('nvr')">0</div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="nvr-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="nvr-time-title-text">资料更新时间</span>:
+                    <span id="nvr-time-title-text">??????</span>:
                     <span id="nvr-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='face-title-text'>人脸机离线数量</div>
+                <div class="card-title" id='face-title-text'>???????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="face-abnormal" onclick="openModal('face')">0</div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="face-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="face-time-title-text">资料更新时间</span>:
+                    <span id="face-time-title-text">??????</span>:
                     <span id="face-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='hr_face-title-text'>人事资料同步异常数(人脸)</div>
+                <div class="card-title" id='hr_face-title-text'>?????????(??)</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="hr_face-abnormal" onclick="openModal('hr_face')">0</div>
-                        <div class="circle-label">异常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="hr_face-normal">0</div>
-                        <div class="circle-label">正常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="hr_face-time-title-text">资料更新时间</span>:
+                    <span id="hr_face-time-title-text">??????</span>:
                     <span id="hr_face-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='perm-title-text'>人脸权限同步异常数</div>
+                <div class="card-title" id='perm-title-text'>?????????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="perm-abnormal" onclick="openModal('perm')">0</div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="perm-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="perm-time-title-text">资料更新时间</span>:
+                    <span id="perm-time-title-text">??????</span>:
                     <span id="perm-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='accesscontrol-title-text'>门禁控制器离线数量</div>
+                <div class="card-title" id='accesscontrol-title-text'>?????????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="accesscontrol-abnormal"
                             onclick="openModal('accesscontrol')">0</div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="accesscontrol-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="accesscontrol-time-title-text">资料更新时间</span>:
+                    <span id="accesscontrol-time-title-text">??????</span>:
                     <span id="accesscontrol-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='hr_door-title-text'>人事资料同步异常数(门禁)</div>
+                <div class="card-title" id='hr_door-title-text'>?????????(??)</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="hr_door-abnormal" onclick="openModal('hr_door')">0</div>
-                        <div class="circle-label">异常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="hr_door-normal">0</div>
-                        <div class="circle-label">正常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="hr_door-time-title-text">资料更新时间</span>:
+                    <span id="hr_door-time-title-text">??????</span>:
                     <span id="hr_door-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='magnetdoor-title-text'>门磁主机离线数量</div>
+                <div class="card-title" id='magnetdoor-title-text'>????????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="magnetdoor-abnormal"
                             onclick="openModal('magnetdoor')">0</div>
-                        <div class="circle-label">异常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="magnetdoor-normal">0</div>
-                        <div class="circle-label">正常数(台)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="magnetdoor-time-title-text">资料更新时间</span>:
+                    <span id="magnetdoor-time-title-text">??????</span>:
                     <span id="magnetdoor-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" id='visitor-title-text'>访客未出厂异常数</div>
+                <div class="card-title" id='visitor-title-text'>????????</div>
                 <div class="circles-row">
                     <div class="circle-wrap">
                         <div class="circle abnormal clickable" id="visitor-abnormal" onclick="openModal('visitor')">0</div>
-                        <div class="circle-label">异常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                     <div class="circle-wrap">
                         <div class="circle normal" id="visitor-normal">0</div>
-                        <div class="circle-label">正常数(人)</div>
+                        <div class="circle-label">???(?)</div>
                     </div>
                 </div>
                 <div class="card-time-footer">
-                    <span id="visitor-time-title-text">资料更新时间</span>:
+                    <span id="visitor-time-title-text">??????</span>:
                     <span id="visitor-time-value">yyyy/mm/dd hh:MM:ss</span>
                 </div>
             </div>
@@ -353,23 +353,23 @@
     <script src="./js/mqtt.min.js"></script>
     <script src="./js/layout.js?v=8"></script>
     <script>
-        // --- BIẾN TOÀN CỤC ---
+        // --- BI?N TOÀN C?C ---
         let CURRENT_DETAIL_DATA = null;
         let CURRENT_TYPE = "";
         let PREVIOUS_TYPE = "";
         let CURRENT_LANG = localStorage.getItem('lang') || 'zh';
         let GLOBAL_CONTACTS_DATA = [];
-        let CAMERA_FILTER = null;          // null = hiển thị tất cả
+        let CAMERA_FILTER = null;          // null = hi?n th? t?t c?
 
         const CAMERA_FILTERS = ['offline', 'covered', 'rotated', 'black', 'white'];
         let CAMERA_COUNTS = { offline: null, covered: null, rotated: null, black: null, white: null, exception: null };
 
-        // Loại detail gửi lên server theo nút đang chọn (mỗi loại là 1 SQL trong config.json)
+        // Lo?i detail g?i lên server theo nút dang ch?n (m?i lo?i là 1 SQL trong config.json)
         function cameraDetailType() {
             return CAMERA_FILTERS.includes(CAMERA_FILTER) ? 'camera_' + CAMERA_FILTER : 'camera';
         }
 
-        // Tổng tất cả loại lỗi camera (hiển thị khi không lọc)
+        // T?ng t?t c? lo?i l?i camera (hi?n th? khi không l?c)
         function cameraTotal() {
             return CAMERA_FILTERS.reduce((s, k) => s + (CAMERA_COUNTS[k] ?? 0), 0);
         }
@@ -395,7 +395,7 @@
             });
         }
 
-        // Bấm lần nữa vào nút đang chọn thì bỏ lọc, quay lại hiển thị tất cả
+        // B?m l?n n?a vào nút dang ch?n thì b? l?c, quay l?i hi?n th? t?t c?
         let CAMERA_REQ_SEQ = 0;
         async function setCameraFilter(status) {
             CAMERA_FILTER = (CAMERA_FILTER === status) ? null : status;
@@ -410,7 +410,7 @@
             } catch (e) { console.error(e); }
         }
 
-        // --- QUẢN LÝ NGÔN NGỮ ---
+        // --- QU?N LÝ NGÔN NG? ---
         function setLanguage(lang) {
             CURRENT_LANG = lang;
             localStorage.setItem('lang', lang);
@@ -463,7 +463,7 @@
             const exceptionLabel = document.getElementById('camera-exception-label');
             if (exceptionLabel) exceptionLabel.textContent = `${dict.exception}(${dict.unit_tai})`;
 
-            // Vẽ lại modal nếu đang mở
+            // V? l?i modal n?u dang m?
             const overlay = document.getElementById('overlay');
             if (overlay && overlay.classList.contains('active')) {
                 if (CURRENT_TYPE === "it_contacts") {
@@ -488,7 +488,7 @@
                 if (btn) openEditModal(EDIT_ROW_INDEX, btn);
             }
 
-            // Login modal theo ngôn ngữ
+            // Login modal theo ngôn ng?
             document.getElementById('login-modal-title').textContent = dict.login_title || '\uD83D\uDD12 Login';
             document.getElementById('login-label-username').textContent = dict.login_username || 'Username';
             document.getElementById('login-label-password').textContent = dict.login_password || 'Password';
@@ -499,9 +499,9 @@
             applyCameraFilterLabels();
         }
 
-        // --- KẾT NỐI MQTT ---
-        // Thử với server.js local: localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
-        // Quay lại mặc định:  localStorage.removeItem('mqttUrl'); location.reload();
+        // --- K?T N?I MQTT ---
+        // Th? v?i server.js local: localStorage.setItem('mqttUrl','ws://localhost:9001'); location.reload();
+        // Quay l?i m?c d?nh:  localStorage.removeItem('mqttUrl'); location.reload();
         const MQTT_WS_URL = localStorage.getItem('mqttUrl') || 'wss://wvnitsec.wistron.com/mqtt';
         console.log('[WVN] build r9 | MQTT =', MQTT_WS_URL);
         const mqttClient = mqtt.connect(MQTT_WS_URL, {
@@ -539,6 +539,12 @@
                 const abnormalEl = document.getElementById(`${key}-abnormal`);
                 const normalEl = document.getElementById(`${key}-normal`);
 
+                console.log(
+            key,
+            data[key].abnormal,
+            typeof data[key].abnormal
+        );
+
                 if (abnormalEl && normalEl) {
                     abnormalEl.textContent = data[key].abnormal;
                     normalEl.textContent = data[key].normal;
@@ -570,7 +576,7 @@
                         exceptionEl.classList.toggle('is-zero', !(CAMERA_COUNTS.exception > 0));
                     }
 
-                    // 3 ô phụ: màn hình đen / màn hình trắng / bị xoay lệch
+                    // 3 ô ph?: màn hình den / màn hình tr?ng / b? xoay l?ch
                     ['black', 'white', 'rotated'].forEach(k => {
                         const el = document.getElementById('camera-' + k);
                         if (!el) return;
@@ -624,7 +630,7 @@
             const allType = typeMapping[CURRENT_TYPE];
 
             titleEl.innerHTML = `
-                <button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← ${dict.back || 'Back'} </button> 
+                <button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ? ${dict.back || 'Back'} </button> 
                 <span style="margin-left:10px">ALL - ${dict[CURRENT_TYPE]} - ${dict.abnormal_detail}</span>`;
 
             try {
@@ -737,7 +743,7 @@
         function openCameraMap() { LayoutViewer.open({ lang: CURRENT_LANG }); }
         function closeCameraMap() { LayoutViewer.close(); }
 
-        // Lấy IP camera của 1 dòng. Ưu tiên ô có dạng IPv4 khác NVR IP (row[1]), nếu không có thì dùng row[4]
+        // L?y IP camera c?a 1 dòng. Uu tiên ô có d?ng IPv4 khác NVR IP (row[1]), n?u không có thì dùng row[4]
         function getRowCameraIp(row) {
             const ipRe = /^\d{1,3}(\.\d{1,3}){3}$/;
             const nvrIp = String(row[1] ?? '').trim();
@@ -747,7 +753,7 @@
             return cands.length ? cands[cands.length - 1] : (row[4] ?? '');
         }
 
-        // Mở layout và nhảy tới đúng camera (IP -> NVR IP + kênh -> tên camera)
+        // M? layout và nh?y t?i dúng camera (IP -> NVR IP + kênh -> tên camera)
         function openCameraMapAt(btn) {
             const d = btn.dataset;
             if (!d.ip && !d.name) return;
@@ -760,7 +766,7 @@
         async function openPersonnelDetail(subType, id) {
             const dict = window.i18n[CURRENT_LANG];
             const titleEl = document.getElementById('modal-title');
-            titleEl.innerHTML = `<button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ← ${dict.back || 'Back'} </button> <span style="margin-left:10px">${id} - ${dict.abnormal_detail}</span>`;
+            titleEl.innerHTML = `<button onclick="openModal(PREVIOUS_TYPE)" class="btn-back"> ? ${dict.back || 'Back'} </button> <span style="margin-left:10px">${id} - ${dict.abnormal_detail}</span>`;
 
             try {
                 const data = await getMqttData('wvn/security_qas/request/subdetail', { type: subType, id });
@@ -794,12 +800,12 @@
             let colKey = type.replace('sub_', '').replace('all_', '').replace('hrface', 'hr_face').replace('hrdoor', 'hr_door');
             const cols = isSub ? dict.cols_map_sub[colKey] : (dict.cols_map[type] || dict.cols_map[colKey]);
 
-            // --- Tính số lượng hiển thị ---
+            // --- Tính s? lu?ng hi?n th? ---
             let total = 0;
             if (type === "visitor") {
                 total = rows.length;
             } else if (type === 'camera' && !isSub) {
-                // Luôn là tổng cả 5 loại, không phụ thuộc nút lọc đang chọn
+                // Luôn là t?ng c? 5 lo?i, không ph? thu?c nút l?c dang ch?n
                 const allNull = CAMERA_FILTERS.every(k => CAMERA_COUNTS[k] === null);
                 total = allNull ? rows.length : cameraTotal();
             } else if (type === 'camera_exception') {
@@ -810,7 +816,7 @@
                 total = rows.length;
             }
 
-            // --- Đơn vị: Người hay Thiết bị ---
+            // --- Ðon v?: Ngu?i hay Thi?t b? ---
             let isPeople = false;
             if (isSub) {
                 isPeople = type.includes('hrface') || type.includes('hrdoor') || type.includes('hr_');
@@ -819,8 +825,8 @@
             }
             countVal.textContent = `${total} ${isPeople ? dict.unit_ren : dict.unit_tai}`;
 
-            // --- Dựng bảng ---
-            // Camera: cột 📍 (xem vị trí trên layout) + cột ✏️ (sửa ghi chú / lý do)
+            // --- D?ng b?ng ---
+            // Camera: c?t ?? (xem v? trí trên layout) + c?t ?? (s?a ghi chú / lý do)
             const showEdit = !isSub && (type === 'camera' || type === 'camera_exception');
             const showMap = !isSub && type === 'camera';
             const displayCols = [
@@ -838,8 +844,8 @@
             if (rows.length === 0) {
                 let hint = '';
                 if (type === 'camera' && !isSub && CAMERA_FILTER && (CAMERA_COUNTS[CAMERA_FILTER] || 0) > 0) {
-                    hint = `<div style="color:#faad14;font-size:12px;margin-top:6px">⚠ detail.camera_${CAMERA_FILTER} ?</div>`;
-                    console.warn(`[WVN] request detail 'camera_${CAMERA_FILTER}' trả 0 dòng nhưng dashboard báo ${CAMERA_COUNTS[CAMERA_FILTER]}: kiểm tra config.json trên backend`);
+                    hint = `<div style="color:#faad14;font-size:12px;margin-top:6px">? detail.camera_${CAMERA_FILTER} ?</div>`;
+                    console.warn(`[WVN] request detail 'camera_${CAMERA_FILTER}' tr? 0 dòng nhung dashboard báo ${CAMERA_COUNTS[CAMERA_FILTER]}: ki?m tra config.json trên backend`);
                 }
                 html += `<tr><td colspan="${displayCols.length || 1}" style="text-align:center;">${dict.no_data}${hint}</td></tr>`;
             } else {
@@ -893,7 +899,7 @@
             return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
         }
 
-        // "Chi tiết Bất thường" của camera = tổng 5 loại lỗi
+        // "Chi ti?t B?t thu?ng" c?a camera = t?ng 5 lo?i l?i
         function updateCameraTotal() {
             if (CURRENT_TYPE !== 'camera') return;
             const dict = window.i18n[CURRENT_LANG];
@@ -1118,7 +1124,7 @@
                     statusEl.style.color = '#4caf50';
                     statusEl.textContent = newValue ? dict.save_success : dict.delete_success;
 
-                    // Tải lại bảng từ server
+                    // T?i l?i b?ng t? server
                     const requestType = isCameraException ? 'cameraexception' : (CURRENT_TYPE === 'camera' ? cameraDetailType() : CURRENT_TYPE);
                     const freshData = (!isCameraException && CURRENT_TYPE === 'camera')
                         ? await fetchCameraDetail()
