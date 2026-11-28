@@ -235,13 +235,15 @@
       byId[m.id] = m;
       m.customs = isCustoms(m);
       m.cat = category(m);
-      var yellow = m.customs && m.cat !== 'offline';
+      // Hải quan bình thường: ghim + vùng nhìn vàng. Hải quan có lỗi: nền theo loại lỗi, chỉ icon camera vàng
+      var custBad = m.customs && !!BAD_CATS[m.cat];
+      var yellow = m.customs && !BAD_CATS[m.cat];
       var covered = m.cat === 'covered';
       var rotated = m.cat === 'rotated';
       var h = healthProblem(m);
       var p = mk('div', 'lay-pin ' + stClass(m) + (m.planned ? ' planned' : '') +
         (h ? (HEALTH_BAD[h] ? ' hl-bad' : ' hl-warn') : '') +
-        (yellow ? ' cust' : '') + (covered ? ' cov' : '') + (rotated ? ' rot' : '') + (m.cat === 'black' ? ' blk' : '') + (m.cat === 'white' ? ' wht' : '') + (m.id === selId ? ' sel' : ''));
+        (yellow ? ' cust' : '') + (custBad ? ' cust-bad' : '') + (covered ? ' cov' : '') + (rotated ? ' rot' : '') + (m.cat === 'black' ? ' blk' : '') + (m.cat === 'white' ? ' wht' : '') + (m.id === selId ? ' sel' : ''));
       p.dataset.id = m.id;
       var fx = m.cat === 'offline' ? LG_FX.off : (m.cat === 'covered' ? LG_FX.cov : (rotated ? LG_FX.rot : ''));
       p.innerHTML = CAM_SVG + fx.replace('lay-lg-fx', 'lay-pin-fx');
