@@ -1,44 +1,19 @@
-Có thể rule `background-size` của bạn bị ghi đè ở các ô offline, đen, trắng, hoặc thứ tự lớp ảnh bị lệch. Cách chắc chắn nhất là **bỏ phụ thuộc vào `background-size`**: thu nhỏ camera ngay trong SVG, nên ô nào cũng nhỏ như nhau.
-
-## 1. Trong `index.css`: thay 2 biến camera
-
-Trong khối `.card-camera { ... }`, thay `--cam-w` và `--cam-d` bằng (camera được thu về 50% quanh tâm):
+Bạn thay biến `--fx-cov` trong khối `.card-camera { ... }` của `index.css` bằng đoạn dưới. Viền tròn là 20x20, tâm (10,10), bán kính 10; vạch giữa dài nhất chạy gần sát 2 mép, 2 vạch bên ngắn dần.
 
 ```css
-  --cam-w: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(12 12) scale(.5) translate(-12 -12)'><path fill='white' d='M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z'/></g></svg>");
-  --cam-d: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(12 12) scale(.5) translate(-12 -12)'><path fill='%231f2d3d' d='M17 10.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3.5l5 4v-11l-5 4z'/></g></svg>");
+  /* Bị che: 1 vạch dài ở giữa (sát mép tròn), 2 vạch ngắn hơn ở 2 bên */
+  --fx-cov: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g stroke-linecap='round'><line x1='12.8' y1='1.5' x2='7.2' y2='18.5' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='12.8' y1='1.5' x2='7.2' y2='18.5' stroke='white' stroke-width='1.3'/><line x1='7.8' y1='3.8' x2='3.4' y2='15.8' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='7.8' y1='3.8' x2='3.4' y2='15.8' stroke='white' stroke-width='1.3'/><line x1='17.2' y1='4.2' x2='12.8' y2='16.2' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='17.2' y1='4.2' x2='12.8' y2='16.2' stroke='white' stroke-width='1.3'/></g></svg>");
 ```
 
-## 2. Đổi `background-size` về 100% cho cả 2 lớp
+Ba vạch có cùng độ nghiêng với bản cũ, chỉ khác độ dài:
+- Vạch giữa: từ (12.8, 1.5) đến (7.2, 18.5), dài khoảng 17.9, gần chạm 2 mép trên và dưới của hình tròn.
+- Hai vạch bên: dài khoảng 12.8, ngắn hơn rõ rệt, nằm lệch trái và phải đối xứng quanh vạch giữa.
 
-```css
-.card-camera .circle-wrap .circle::before {
-  width: 34px !important;
-  height: 34px !important;
-  border-radius: 50%;
-  background-repeat: no-repeat !important;
-  background-position: center !important;
-  background-size: 100% 100%, 100% 100% !important;
-}
-```
+Điều chỉnh thêm:
+- Vạch giữa muốn dài hơn nữa: đổi `1.5` thành `1` và `18.5` thành `19` (đừng vượt quá, sẽ bị cắt mép).
+- Hai vạch bên muốn ngắn hơn: dịch đầu mút vào gần tâm, ví dụ `y1='5.5'` và `y2='14.5'` cho cả hai.
+- Muốn các vạch dày hơn: tăng `stroke-width` của lớp trắng từ `1.3` lên `1.6`.
 
-Vòng tròn vẫn 34px, vòng đỏ ngoài không đổi, chỉ hình camera nhỏ lại.
+Nếu muốn icon bên chú thích của layout (`LG_FX.cov` trong `layout.js`) và ghim trên bản đồ giống y hệt, bạn cũng thay mảng `[0, 3, 6]` bằng 3 cặp `<line>` tương tự. Mình có thể gửi đoạn đó nếu bạn cần.
 
-## 3. Thêm xuống cuối file (đảm bảo cả `.is-zero` cũng ăn)
-
-```css
-.card-camera .circle-wrap .circle.abnormal::before,
-.card-camera .circle-wrap .circle.black::before,
-.card-camera .circle-wrap .circle.white::before,
-.card-camera .circle-wrap .circle.abnormal.is-zero::before,
-.card-camera .circle-wrap .circle.black.is-zero::before,
-.card-camera .circle-wrap .circle.white.is-zero::before {
-  background-size: 100% 100%, 100% 100% !important;
-}
-```
-
-## Chỉnh độ lớn camera
-
-Chỉ cần đổi `scale(.5)` trong 2 biến: `.4` nhỏ hơn, `.6` lớn hơn. Hiệu ứng gạch chéo của Offline vẫn giữ kích thước cũ; nếu muốn nó nhỏ theo, bọc `<line>` trong `--fx-off` bằng `<g transform='translate(10 10) scale(.7) translate(-10 -10)'>`.
-
-Nhớ tăng `?v=12` lên `?v=13` và Ctrl+F5.
+Nhớ tăng `?v=13` lên `?v=14` và Ctrl+F5.
