@@ -1,19 +1,32 @@
-Bạn thay biến `--fx-cov` trong khối `.card-camera { ... }` của `index.css` bằng đoạn dưới. Viền tròn là 20x20, tâm (10,10), bán kính 10; vạch giữa dài nhất chạy gần sát 2 mép, 2 vạch bên ngắn dần.
+Mình đã sửa `layout.js` và bạn cần thêm một đoạn CSS vào `layout.css` để icon camera chuyển vàng.
+
+## 1. `layout.js` (đã sửa)
+
+Camera hải quan được chia hai trường hợp:
+- **Bình thường:** ghim và vùng nhìn màu vàng, như cũ.
+- **Có lỗi** (offline, bị che, đen, trắng, xoay lệch, lệch màu, quá sáng): ghim giữ nền và viền theo đúng loại lỗi, chỉ icon camera bên trong chuyển vàng. Ghim này được gắn thêm class `cust-bad`.
+
+Trước đây camera hải quan bị che, đen hoặc trắng bị nền vàng ghi đè, nên không phân biệt được loại lỗi. Giờ nền được giữ nguyên.
+
+## 2. `layout.css`: thêm xuống cuối file
 
 ```css
-  /* Bị che: 1 vạch dài ở giữa (sát mép tròn), 2 vạch ngắn hơn ở 2 bên */
-  --fx-cov: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g stroke-linecap='round'><line x1='12.8' y1='1.5' x2='7.2' y2='18.5' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='12.8' y1='1.5' x2='7.2' y2='18.5' stroke='white' stroke-width='1.3'/><line x1='7.8' y1='3.8' x2='3.4' y2='15.8' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='7.8' y1='3.8' x2='3.4' y2='15.8' stroke='white' stroke-width='1.3'/><line x1='17.2' y1='4.2' x2='12.8' y2='16.2' stroke='black' stroke-opacity='.45' stroke-width='2.6'/><line x1='17.2' y1='4.2' x2='12.8' y2='16.2' stroke='white' stroke-width='1.3'/></g></svg>");
+/* Camera hải quan có lỗi: nền theo loại lỗi, chỉ icon camera màu vàng */
+.lay-pin.cust-bad svg:not(.lay-pin-fx) { fill: #f5c400; }
+
+/* Nền trắng (màn hình trắng): icon vàng cần viền tối để nhìn rõ */
+.lay-pin.cust-bad.wht svg:not(.lay-pin-fx) {
+  fill: #f5c400;
+  stroke: #7a5a00;
+  stroke-width: 1.4;
+  paint-order: stroke;
+}
 ```
 
-Ba vạch có cùng độ nghiêng với bản cũ, chỉ khác độ dài:
-- Vạch giữa: từ (12.8, 1.5) đến (7.2, 18.5), dài khoảng 17.9, gần chạm 2 mép trên và dưới của hình tròn.
-- Hai vạch bên: dài khoảng 12.8, ngắn hơn rõ rệt, nằm lệch trái và phải đối xứng quanh vạch giữa.
+Selector `:not(.lay-pin-fx)` giữ nguyên các nét gạch chéo (offline), 3 gạch (bị che) và mũi tên (xoay lệch) màu trắng, chỉ đổi riêng hình camera.
 
-Điều chỉnh thêm:
-- Vạch giữa muốn dài hơn nữa: đổi `1.5` thành `1` và `18.5` thành `19` (đừng vượt quá, sẽ bị cắt mép).
-- Hai vạch bên muốn ngắn hơn: dịch đầu mút vào gần tâm, ví dụ `y1='5.5'` và `y2='14.5'` cho cả hai.
-- Muốn các vạch dày hơn: tăng `stroke-width` của lớp trắng từ `1.3` lên `1.6`.
+## Lưu ý
 
-Nếu muốn icon bên chú thích của layout (`LG_FX.cov` trong `layout.js`) và ghim trên bản đồ giống y hệt, bạn cũng thay mảng `[0, 3, 6]` bằng 3 cặp `<line>` tương tự. Mình có thể gửi đoạn đó nếu bạn cần.
-
-Nhớ tăng `?v=13` lên `?v=14` và Ctrl+F5.
+- Icon trong bảng chú thích không đổi, vì chú thích chỉ mô tả loại lỗi. Nếu muốn thêm một mục chú thích riêng cho "Hải quan có lỗi", mình có thể thêm.
+- Vùng nhìn (hình quạt) của camera hải quan có lỗi giờ dùng màu theo trạng thái, không còn vàng.
+- Nhớ tăng `?v=` của `layout.js` và `layout.css` trong `index.html`, rồi Ctrl+F5.
