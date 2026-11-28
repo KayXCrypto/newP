@@ -269,14 +269,17 @@
   function applyNames() { el.stage.classList.toggle('lay-labels', namesOn); el.names.classList.toggle('on', namesOn); }
 
   function renderLegend() {
-    var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0, rotated: 0, black: 0, white: 0 };
-    markers.forEach(function (m) { if (n[m.cat] !== undefined) n[m.cat]++; });
+    var t = T(), n = { normal: 0, customs: 0, offline: 0, covered: 0, rotated: 0, black: 0, white: 0 }, hq = {};
+    markers.forEach(function (m) {
+      if (n[m.cat] !== undefined) n[m.cat]++;
+      if (m.customs && BAD_CATS[m.cat]) hq[m.cat] = true;   // có camera hải quan đang lỗi loại này
+    });
     el.legend.innerHTML = '';
     [['normal', '', t.lg_normal], ['customs', 'cust', t.lg_customs],
      ['offline', 'off', t.lg_offline], ['covered', 'cov', t.lg_covered],
      ['rotated', 'rot', t.lg_rotated], ['black', 'blk', t.lg_black], ['white', 'wht', t.lg_white]].forEach(function (it) {
       var chip = mk('span', 'lay-lg');
-      var ico = mk('span', 'lay-lg-ico ' + it[1]);
+      var ico = mk('span', 'lay-lg-ico ' + it[1] + (hq[it[0]] ? ' hq' : ''));
       ico.innerHTML = CAM_SVG + (LG_FX[it[1]] || '');
       chip.appendChild(ico);
       chip.appendChild(mk('span', 'lay-lg-txt', it[2] + ' ' + n[it[0]]));
