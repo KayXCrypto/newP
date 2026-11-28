@@ -1,31 +1,28 @@
-Mình hiểu rồi: chỉ camera hải quan **đang có lỗi** mới có icon camera vàng, còn các icon lỗi thường giữ nguyên. Đoạn CSS lần trước đổi cả 5 icon lỗi sang vàng là sai ý, nên mình đã bỏ hướng đó.
+Mình đã sửa lại `layout.js` theo đúng ý bạn: mục chú thích nào có camera hải quan bị lỗi loại đó thì icon camera trong chú thích chuyển vàng, các mục khác giữ nguyên. Mục "Hải quan lỗi" mình thêm lần trước đã bỏ.
 
-## 1. `layout.css`: xóa đoạn CSS chú thích lần trước
+Ví dụ:
+- Có camera hải quan bị **che**: icon "Bị che" trong chú thích có camera vàng, và camera đó trên bản đồ cũng có camera vàng.
+- Có camera hải quan **màn hình trắng**: chỉ icon "Màn hình trắng" đổi vàng.
+- Không có camera hải quan nào lỗi loại nào thì chú thích loại đó vẫn là camera trắng như cũ.
 
-Xóa hai khối này (đã đưa ở câu trả lời trước):
+Cơ chế này áp dụng cho cả 5 loại: ngoại tuyến, bị che, bị xoay lệch, màn hình đen, màn hình trắng.
 
-```css
-.lay-lg-ico.off svg:not(.lay-lg-fx), ... { fill: #f5c400; }
-.lay-lg-ico.wht svg:not(.lay-lg-fx) { ... }
-```
+## `layout.css`
 
-Khi xóa, 5 icon Ngoại tuyến, Bị che, Bị xoay lệch, Màn hình đen, Màn hình trắng trở về camera trắng như cũ.
-
-## 2. `layout.css`: thêm mục chú thích mới
+Nếu bạn đã dán đoạn `.lay-lg-ico.cbad` ở lần trước, hãy xóa nó (và các khối `.lay-lg-ico.off svg...` nếu còn), rồi thêm xuống cuối file:
 
 ```css
-/* Chú thích "Hải quan lỗi": nền tối, vòng đỏ ngoài, icon camera vàng */
-.lay-lg-ico.cbad {
-  background: #2b3b50;
-  box-shadow: 0 0 0 1.5px #1f2d3d, 0 0 0 3.5px #d93025;
+/* Chú thích: có camera hải quan lỗi loại này -> icon camera vàng */
+.lay-lg-ico.hq svg:not(.lay-lg-fx) { fill: #f5c400; }
+
+/* Nền trắng (màn hình trắng): icon vàng cần viền tối để nhìn rõ */
+.lay-lg-ico.wht.hq svg:not(.lay-lg-fx) {
+  stroke: #7a5a00;
+  stroke-width: 1.6;
+  paint-order: stroke;
 }
-.lay-lg-ico.cbad svg:not(.lay-lg-fx) { fill: #f5c400; }
 ```
 
-## 3. `layout.js` (đã sửa)
+Đoạn CSS `.lay-pin.cust-bad ...` đã đưa trước đó cho ghim trên bản đồ vẫn giữ nguyên.
 
-Bảng chú thích có thêm mục thứ 8 **"Hải quan lỗi"** (có cả bản 中文 và English), kèm số lượng camera hải quan đang lỗi. Ghim trên bản đồ không đổi so với lần trước: camera hải quan lỗi giữ nền theo loại lỗi và chỉ icon camera màu vàng.
-
-Vì nền ghim hải quan lỗi phụ thuộc vào loại lỗi (đỏ, xanh, đen, trắng), mục chú thích dùng nền tối trung tính để biểu thị chung. Phần phân biệt từng loại vẫn xem trên bản đồ hoặc trong thẻ thông tin camera.
-
-Nhớ tăng `?v=` của `layout.css` và `layout.js` trong `index.html`, rồi Ctrl+F5.
+Chú thích tự cập nhật theo chu kỳ refresh 15 giây, nên khi camera hải quan hết lỗi thì icon tự trở lại màu trắng. Nhớ tăng `?v=` của `layout.js` và `layout.css` rồi Ctrl+F5.
